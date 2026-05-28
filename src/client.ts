@@ -154,7 +154,7 @@ export async function uploadTarball(
 }
 
 function parseJobId(queueUrl: string): string {
-  const match = queueUrl.match(/queue\/jobs\/([A-Z0-9-]+)\/?$/);
+  const match = queueUrl.match(/queue\/jobs\/([A-Za-z0-9-]+)\/?$/);
   if (!match) {
     throw new Error(`Could not parse job ID out of queue URL: ${queueUrl}`);
   }

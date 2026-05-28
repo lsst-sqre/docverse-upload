@@ -49,8 +49,8 @@ function buildResource(overrides: Record<string, unknown> = {}) {
 
 function queueJob(overrides: Record<string, unknown> = {}) {
   return {
-    self_url: `${BASE_URL}/queue/jobs/JOB1`,
-    id: 'JOB1',
+    self_url: `${BASE_URL}/queue/jobs/qbk8-g75d-s0h1-97`,
+    id: 'qbk8-g75d-s0h1-97',
     kind: 'build_processing',
     status: 'completed',
     phase: 'editions',
@@ -83,7 +83,10 @@ describe('upload flow', () => {
       http.patch(`${BASE_URL}/orgs/:org/projects/:project/builds/:build`, async ({ request }) => {
         patchBody = await request.json();
         return HttpResponse.json(
-          buildResource({ status: 'uploaded', queue_url: `${BASE_URL}/queue/jobs/JOB1` }),
+          buildResource({
+            status: 'uploaded',
+            queue_url: `${BASE_URL}/queue/jobs/qbk8-g75d-s0h1-97`,
+          }),
         );
       }),
       http.get(`${BASE_URL}/queue/jobs/:job`, () =>
@@ -118,7 +121,7 @@ describe('upload flow', () => {
     expect(putHeader).toBeNull();
 
     const patched = await client.completeUpload(build.self_url);
-    expect(patched.queue_url).toContain('/queue/jobs/JOB1');
+    expect(patched.queue_url).toContain('/queue/jobs/qbk8-g75d-s0h1-97');
     expect(patchBody).toEqual({ status: 'uploaded' });
 
     const job = await pollQueueJob(client, patched.queue_url!, {

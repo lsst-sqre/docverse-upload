@@ -28365,7 +28365,7 @@ async function uploadTarball(uploadUrl, filePath, fetchImpl = globalThis.fetch) 
     }
 }
 function parseJobId(queueUrl) {
-    const match = queueUrl.match(/queue\/jobs\/([A-Z0-9-]+)\/?$/);
+    const match = queueUrl.match(/queue\/jobs\/([A-Za-z0-9-]+)\/?$/);
     if (!match) {
         throw new Error(`Could not parse job ID out of queue URL: ${queueUrl}`);
     }
