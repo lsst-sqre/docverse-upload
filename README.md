@@ -2,7 +2,7 @@
 
 GitHub Action that uploads a built documentation directory to [Docverse](https://github.com/lsst-sqre/docverse) — the in-development successor to LSST the Docs.
 
-The action is a **native JavaScript GitHub Action**: it runs directly on the runner's Node 20 without paying the `actions/setup-python` cost on every job.
+The action is a **native JavaScript GitHub Action**: it runs directly on the runner's Node 24 without paying the `actions/setup-python` cost on every job.
 
 ## Quick start
 
