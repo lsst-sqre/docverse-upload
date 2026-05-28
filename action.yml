@@ -15,7 +15,7 @@ inputs:
     description: 'Path to the built documentation directory.'
     required: true
   token:
-    description: 'Gafaelfawr bearer token. Typically `${{ secrets.DOCVERSE_TOKEN }}`.'
+    description: 'Gafaelfawr bearer token. Typically the `DOCVERSE_TOKEN` secret.'
     required: true
   base-url:
     description: 'Docverse API base URL.'
