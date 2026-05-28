@@ -86,7 +86,10 @@ export class DocverseClient {
   }
 
   async getQueueJob(queueUrl: string): Promise<QueueJob> {
-    const jobId = parseJobId(queueUrl);
+    return this.getQueueJobById(parseJobId(queueUrl));
+  }
+
+  async getQueueJobById(jobId: string): Promise<QueueJob> {
     const result = await this.callApi(() =>
       this.client.GET('/queue/jobs/{job}', { params: { path: { job: jobId } } }),
     );

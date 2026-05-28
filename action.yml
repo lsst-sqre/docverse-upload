@@ -35,6 +35,13 @@ inputs:
     description: 'Wait for build processing to complete (`true` or `false`).'
     required: false
     default: 'true'
+  wait-for-publish:
+    description: |-
+      Wait for the `publish_edition` jobs so the edition is live before the step
+      returns. Only effective when `wait: true`. Publish failures/timeouts warn
+      rather than failing the step (see the `publish-status` output).
+    required: false
+    default: 'true'
   wait-timeout:
     description: 'Maximum minutes to wait for the queue job to reach a terminal state.'
     required: false
@@ -48,6 +55,8 @@ outputs:
     description: 'First `published_url` among the updated editions, sorted by slug ASC.'
   job-status:
     description: 'Terminal queue-job status (or `queued` when `wait: false`).'
+  publish-status:
+    description: 'Publish outcome: `published`, `failed`, `timed-out`, or `skipped`.'
   editions-json:
     description: 'JSON array of the updated editions (`slug`, `title`, `published_url`), sorted by slug.'
 runs:

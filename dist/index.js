@@ -28315,7 +28315,9 @@ class DocverseClient {
         return result;
     }
     async getQueueJob(queueUrl) {
-        const jobId = parseJobId(queueUrl);
+        return this.getQueueJobById(parseJobId(queueUrl));
+    }
+    async getQueueJobById(jobId) {
         const result = await this.callApi(() => this.client.GET('/queue/jobs/{job}', { params: { path: { job: jobId } } }));
         return result;
     }
@@ -28478,6 +28480,7 @@ function parseInputs(env = process.env) {
     }
     const alternateName = optionalString('alternate-name');
     const wait = parseBoolean('wait', true);
+    const waitForPublish = parseBoolean('wait-for-publish', true);
     const waitTimeoutMinutes = parsePositiveNumber('wait-timeout', DEFAULT_WAIT_TIMEOUT_MINUTES);
     const waitTimeoutMs = Math.round(waitTimeoutMinutes * 60_000);
     validateDir(dir);
@@ -28490,6 +28493,7 @@ function parseInputs(env = process.env) {
         gitRef,
         alternateName,
         wait,
+        waitForPublish,
         waitTimeoutMs,
     };
 }
@@ -28522,6 +28526,27 @@ function extractUpdatedSlugs(job) {
         .map((entry) => entry.slug)
         .filter((slug) => typeof slug === 'string');
 }
+/**
+ * Pull the `publish_edition` job references out of the build job's progress
+ * payload (`progress.publish_jobs[]`), mapping `edition_slug`→`editionSlug` and
+ * `publish_queue_job_public_id`→`jobId`. `progress` is typed `object | null` in
+ * OpenAPI, so we normalize defensively (drop entries missing either string).
+ */
+function extractPublishJobs(job) {
+    if (!job?.progress)
+        return [];
+    const progress = job.progress;
+    const raw = progress.publish_jobs;
+    if (!Array.isArray(raw))
+        return [];
+    return raw
+        .filter((entry) => typeof entry === 'object' && entry !== null)
+        .map((entry) => ({
+        editionSlug: entry.edition_slug,
+        jobId: entry.publish_queue_job_public_id,
+    }))
+        .filter((ref) => typeof ref.editionSlug === 'string' && typeof ref.jobId === 'string');
+}
 /** Trim an edition resource down to the fields surfaced in the action outputs. */
 function toEditionEntry(edition) {
     return {
@@ -28544,16 +28569,17 @@ function selectPublishedUrl(editions) {
     return null;
 }
 function emitOutputs(outcome) {
-    const { build, job, editions } = outcome;
+    const { build, job, editions, publishStatus } = outcome;
     const sorted = [...editions].sort((a, b) => a.slug.localeCompare(b.slug));
     core.setOutput('build-id', build.id);
     core.setOutput('build-url', build.self_url);
     core.setOutput('published-url', selectPublishedUrl(sorted) ?? '');
     core.setOutput('job-status', job?.status ?? 'queued');
+    core.setOutput('publish-status', publishStatus);
     core.setOutput('editions-json', JSON.stringify(sorted));
 }
 async function writeStepSummary(outcome) {
-    const { build, job, editions } = outcome;
+    const { build, job, editions, publishStatus } = outcome;
     const summary = core.summary
         .addHeading('Docverse upload', 2)
         .addRaw(`Build \`${build.id}\` — status \`${build.status}\``)
@@ -28562,6 +28588,7 @@ async function writeStepSummary(outcome) {
         .addEOL();
     if (job) {
         summary.addRaw(`Job \`${job.id}\` — status \`${job.status}\``).addEOL();
+        summary.addRaw(`Publishing: \`${publishStatus}\``).addEOL();
         if (job.phase) {
             summary.addRaw(`Last phase: \`${job.phase}\``).addEOL();
         }
@@ -28600,15 +28627,16 @@ class PollTimeoutError extends Error {
 /**
  * Poll a queue job until it reaches a terminal state or the timeout expires.
  * Exponential backoff with jitter (1 s → 15 s, jitter up to 50% of the delay).
+ * `fetchJob` is re-invoked each tick to fetch the current job state.
  */
-async function pollQueueJob(client, queueUrl, opts) {
+async function pollJob(fetchJob, opts) {
     const sleep = opts.sleep ?? defaultSleep;
     const random = opts.random ?? Math.random;
     const now = opts.now ?? (() => Date.now());
     const deadline = now() + opts.timeoutMs;
     let delay = INITIAL_DELAY_MS;
     while (true) {
-        const job = await client.getQueueJob(queueUrl);
+        const job = await fetchJob();
         if (TERMINAL_STATUSES.has(job.status)) {
             return job;
         }
@@ -28621,6 +28649,21 @@ async function pollQueueJob(client, queueUrl, opts) {
         await sleep(wait);
         delay = Math.min(delay * BACKOFF_FACTOR, MAX_DELAY_MS);
     }
+}
+/** Poll the build-processing queue job at `queueUrl` until terminal. */
+async function pollQueueJob(client, queueUrl, opts) {
+    return pollJob(() => client.getQueueJob(queueUrl), opts);
+}
+/**
+ * Poll every `publish_edition` job concurrently until each is terminal. Each
+ * job shares the same `opts` (in particular the remaining `timeoutMs` budget).
+ * A `PollTimeoutError` from any job rejects the whole batch.
+ */
+async function pollPublishJobs(client, refs, opts) {
+    return Promise.all(refs.map((ref) => pollJob(() => client.getQueueJobById(ref.jobId), opts).then((job) => ({
+        editionSlug: ref.editionSlug,
+        job,
+    }))));
 }
 function defaultSleep(ms) {
     return new Promise((resolve) => setTimeout(resolve, ms));
@@ -28754,6 +28797,8 @@ async function run() {
         core.info('Tarball upload complete.');
         const patched = await client.completeUpload(build.self_url);
         core.info(`Build ${patched.id} marked uploaded; queue url=${patched.queue_url ?? '<none>'}`);
+        // Shared budget for build polling and the subsequent publish wait.
+        const deadline = Date.now() + inputs.waitTimeoutMs;
         let finalJob = null;
         if (inputs.wait) {
             if (!patched.queue_url) {
@@ -28764,7 +28809,14 @@ async function run() {
             });
             core.info(`Queue job ${finalJob.id} reached terminal status ${finalJob.status}`);
         }
-        await reportOutcome(client, inputs, patched, finalJob);
+        let publishStatus = 'skipped';
+        if (inputs.wait && inputs.waitForPublish && finalJob) {
+            publishStatus = await waitForPublish(client, finalJob, Math.max(deadline - Date.now(), 0));
+        }
+        else if (!inputs.wait && inputs.waitForPublish) {
+            core.info('Skipping wait-for-publish because `wait` is off.');
+        }
+        await reportOutcome(client, inputs, patched, finalJob, publishStatus);
     }
     catch (err) {
         handleFailure(err);
@@ -28775,9 +28827,9 @@ async function run() {
         }
     }
 }
-async function reportOutcome(client, inputs, build, job) {
+async function reportOutcome(client, inputs, build, job, publishStatus) {
     const editions = await resolveEditions(client, inputs.org, inputs.project, extractUpdatedSlugs(job));
-    const outcome = { build, job, editions };
+    const outcome = { build, job, editions, publishStatus };
     emitOutputs(outcome);
     await writeStepSummary(outcome);
     if (!inputs.wait || !job) {
@@ -28798,6 +28850,35 @@ async function reportOutcome(client, inputs, build, job) {
         default:
             core.setFailed(`Unexpected terminal job status: ${job.status}`);
     }
+}
+/**
+ * Wait for the `publish_edition` jobs referenced by the completed build job so
+ * the edition is guaranteed live. Publish failures and timeouts are downgraded
+ * to warnings (reflected in the returned status) rather than failing the step;
+ * downstream workflows gate on the `publish-status` output.
+ */
+async function waitForPublish(client, job, timeoutMs) {
+    const refs = extractPublishJobs(job);
+    if (refs.length === 0) {
+        return 'skipped';
+    }
+    core.info(`Waiting for ${refs.length} publish job(s) to finish…`);
+    let results;
+    try {
+        results = await pollPublishJobs(client, refs, { timeoutMs });
+    }
+    catch (err) {
+        if (err instanceof PollTimeoutError) {
+            core.warning(`Timed out waiting for editions to publish: ${err.message}`);
+            return 'timed-out';
+        }
+        throw err;
+    }
+    const failed = results.filter((r) => r.job.status !== 'completed');
+    for (const { editionSlug, job: publishJob } of failed) {
+        core.warning(`Edition \`${editionSlug}\` did not publish cleanly (status \`${publishJob.status}\`).`);
+    }
+    return failed.length ? 'failed' : 'published';
 }
 /**
  * Resolve `published_url`/`title` for each updated edition. The queue-job

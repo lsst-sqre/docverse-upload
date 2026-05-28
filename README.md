@@ -29,6 +29,7 @@ The action performs the full upload workflow:
 3. `PUT` the tarball to the presigned URL returned by the server.
 4. `PATCH` the build with `status: uploaded` to start processing.
 5. Polls the queue job until it reaches a terminal state.
+6. Polls each `publish_edition` job until the edition is live (unless `wait-for-publish: false`).
 
 ## Inputs
 
@@ -42,6 +43,7 @@ The action performs the full upload workflow:
 | `git-ref`        | no       | `$GITHUB_HEAD_REF || $GITHUB_REF_NAME`             | Short branch/tag name sent as the build's `git_ref`. Correctly handles `pull_request` events. |
 | `alternate-name` | no       | —                                                  | Alternate deployment name for scoped editions. |
 | `wait`           | no       | `true`                                             | Wait for processing to complete. When `false`, the action returns right after PATCH. |
+| `wait-for-publish` | no     | `true`                                             | After build processing, wait for the `publish_edition` jobs so the edition is live. Only effective when `wait: true`. Failures/timeouts warn rather than failing the step. |
 | `wait-timeout`   | no       | `30`                                               | Maximum minutes to wait for the queue job to reach a terminal state. |
 
 ## Outputs
@@ -52,6 +54,7 @@ The action performs the full upload workflow:
 | `build-url`     | HATEOAS `self_url` of the build resource. |
 | `published-url` | First `published_url` among the updated editions, sorted by slug ASC. |
 | `job-status`    | Terminal queue-job status (`completed`, `completed_with_errors`, `failed`, `cancelled`) — or `queued` when `wait: false`. |
+| `publish-status`| Publish outcome: `published` (all editions live), `failed` (a publish job ended non-`completed`), `timed-out`, or `skipped` (`wait` off, `wait-for-publish` off, or no publish jobs). |
 | `editions-json` | JSON array of the updated editions (`slug`, `title`, `published_url`), sorted by slug. |
 
 The build-processing queue job reports the slugs it updated (`progress.editions_updated`) but not their public URLs — `published_url` lives on the edition resource. The action therefore fetches each updated edition to resolve `published-url` and `editions-json`.
@@ -104,7 +107,7 @@ jobs:
 
 The action sends `$GITHUB_HEAD_REF` as the build's `git_ref` on `pull_request` events, which is what Docverse uses to scope PR-preview editions.
 
-> Note: posting a PR comment with the preview URL is **not yet implemented**. Read the output of the action (`published-url`) and post the comment from a downstream step if needed.
+> Note: posting a PR comment with the preview URL is **not yet implemented**. Read the action's `published-url` output and post the comment from a downstream step if needed. With the default `wait-for-publish: true`, the edition is guaranteed live when `publish-status == 'published'` — gate the "preview ready" comment on that so the link never 404s.
 
 ## Development
 

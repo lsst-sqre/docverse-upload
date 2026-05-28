@@ -14,6 +14,7 @@ export interface ActionInputs {
   gitRef: string;
   alternateName: string | null;
   wait: boolean;
+  waitForPublish: boolean;
   waitTimeoutMs: number;
 }
 
@@ -82,6 +83,7 @@ export function parseInputs(env: NodeJS.ProcessEnv = process.env): ActionInputs 
 
   const alternateName = optionalString('alternate-name');
   const wait = parseBoolean('wait', true);
+  const waitForPublish = parseBoolean('wait-for-publish', true);
   const waitTimeoutMinutes = parsePositiveNumber('wait-timeout', DEFAULT_WAIT_TIMEOUT_MINUTES);
   const waitTimeoutMs = Math.round(waitTimeoutMinutes * 60_000);
 
@@ -96,6 +98,7 @@ export function parseInputs(env: NodeJS.ProcessEnv = process.env): ActionInputs 
     gitRef,
     alternateName,
     wait,
+    waitForPublish,
     waitTimeoutMs,
   };
 }

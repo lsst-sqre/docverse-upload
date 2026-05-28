@@ -8,6 +8,14 @@ export interface EditionEntry {
   [key: string]: unknown;
 }
 
+/** A `publish_edition` queue job referenced from a build job's progress. */
+export interface PublishJobRef {
+  editionSlug: string;
+  jobId: string;
+}
+
+export type PublishStatus = 'published' | 'failed' | 'timed-out' | 'skipped';
+
 export interface UploadOutcome {
   build: Build;
   job: QueueJob | null;
@@ -18,6 +26,8 @@ export interface UploadOutcome {
    * lives on the edition itself, so it must be resolved separately.
    */
   editions: EditionEntry[];
+  /** Outcome of waiting for the `publish_edition` jobs (or `skipped`). */
+  publishStatus: PublishStatus;
 }
 
 /**
@@ -36,6 +46,31 @@ export function extractUpdatedSlugs(job: QueueJob | null): string[] {
     )
     .map((entry) => entry.slug)
     .filter((slug): slug is string => typeof slug === 'string');
+}
+
+/**
+ * Pull the `publish_edition` job references out of the build job's progress
+ * payload (`progress.publish_jobs[]`), mapping `edition_slug`→`editionSlug` and
+ * `publish_queue_job_public_id`→`jobId`. `progress` is typed `object | null` in
+ * OpenAPI, so we normalize defensively (drop entries missing either string).
+ */
+export function extractPublishJobs(job: QueueJob | null): PublishJobRef[] {
+  if (!job?.progress) return [];
+  const progress = job.progress as Record<string, unknown>;
+  const raw = progress.publish_jobs;
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .filter(
+      (entry): entry is Record<string, unknown> => typeof entry === 'object' && entry !== null,
+    )
+    .map((entry) => ({
+      editionSlug: entry.edition_slug,
+      jobId: entry.publish_queue_job_public_id,
+    }))
+    .filter(
+      (ref): ref is PublishJobRef =>
+        typeof ref.editionSlug === 'string' && typeof ref.jobId === 'string',
+    );
 }
 
 /** Trim an edition resource down to the fields surfaced in the action outputs. */
@@ -62,18 +97,19 @@ export function selectPublishedUrl(editions: EditionEntry[]): string | null {
 }
 
 export function emitOutputs(outcome: UploadOutcome): void {
-  const { build, job, editions } = outcome;
+  const { build, job, editions, publishStatus } = outcome;
   const sorted = [...editions].sort((a, b) => a.slug.localeCompare(b.slug));
 
   core.setOutput('build-id', build.id);
   core.setOutput('build-url', build.self_url);
   core.setOutput('published-url', selectPublishedUrl(sorted) ?? '');
   core.setOutput('job-status', job?.status ?? 'queued');
+  core.setOutput('publish-status', publishStatus);
   core.setOutput('editions-json', JSON.stringify(sorted));
 }
 
 export async function writeStepSummary(outcome: UploadOutcome): Promise<void> {
-  const { build, job, editions } = outcome;
+  const { build, job, editions, publishStatus } = outcome;
   const summary = core.summary
     .addHeading('Docverse upload', 2)
     .addRaw(`Build \`${build.id}\` — status \`${build.status}\``)
@@ -83,6 +119,7 @@ export async function writeStepSummary(outcome: UploadOutcome): Promise<void> {
 
   if (job) {
     summary.addRaw(`Job \`${job.id}\` — status \`${job.status}\``).addEOL();
+    summary.addRaw(`Publishing: \`${publishStatus}\``).addEOL();
     if (job.phase) {
       summary.addRaw(`Last phase: \`${job.phase}\``).addEOL();
     }

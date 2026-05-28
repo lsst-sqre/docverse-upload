@@ -1,6 +1,11 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { Edition, QueueJob } from '../src/client.js';
-import { extractUpdatedSlugs, selectPublishedUrl, toEditionEntry } from '../src/outputs.js';
+import {
+  extractPublishJobs,
+  extractUpdatedSlugs,
+  selectPublishedUrl,
+  toEditionEntry,
+} from '../src/outputs.js';
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -47,6 +52,42 @@ describe('extractUpdatedSlugs', () => {
     expect(extractUpdatedSlugs(null)).toEqual([]);
     expect(extractUpdatedSlugs(makeJob(null))).toEqual([]);
     expect(extractUpdatedSlugs(makeJob({}))).toEqual([]);
+  });
+});
+
+describe('extractPublishJobs', () => {
+  it('pulls edition/job refs out of publish_jobs', () => {
+    const job = makeJob({
+      editions_updated: [{ slug: 'main', action: 'updated' }],
+      publish_jobs: [
+        { edition_slug: 'main', publish_queue_job_public_id: 'whgn-wnz2-tvyx-05' },
+        { edition_slug: 'tickets-DM-1', publish_queue_job_public_id: 'abcd-efgh-ijkl-01' },
+      ],
+    });
+    expect(extractPublishJobs(job)).toEqual([
+      { editionSlug: 'main', jobId: 'whgn-wnz2-tvyx-05' },
+      { editionSlug: 'tickets-DM-1', jobId: 'abcd-efgh-ijkl-01' },
+    ]);
+  });
+
+  it('drops malformed entries (missing either string)', () => {
+    const job = makeJob({
+      publish_jobs: [
+        { edition_slug: 'main', publish_queue_job_public_id: 'p1' },
+        { edition_slug: 'no-job' },
+        { publish_queue_job_public_id: 'no-slug' },
+        { edition_slug: 42, publish_queue_job_public_id: 'p2' },
+        'nope',
+      ],
+    });
+    expect(extractPublishJobs(job)).toEqual([{ editionSlug: 'main', jobId: 'p1' }]);
+  });
+
+  it('returns an empty array when publish_jobs is missing or non-array', () => {
+    expect(extractPublishJobs(null)).toEqual([]);
+    expect(extractPublishJobs(makeJob(null))).toEqual([]);
+    expect(extractPublishJobs(makeJob({}))).toEqual([]);
+    expect(extractPublishJobs(makeJob({ publish_jobs: 'nope' }))).toEqual([]);
   });
 });
 

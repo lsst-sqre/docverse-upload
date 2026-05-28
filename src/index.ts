@@ -5,12 +5,14 @@ import type { Build, QueueJob } from './client.js';
 import { type ActionInputs, InputError, parseInputs } from './inputs.js';
 import {
   type EditionEntry,
+  type PublishStatus,
   emitOutputs,
+  extractPublishJobs,
   extractUpdatedSlugs,
   toEditionEntry,
   writeStepSummary,
 } from './outputs.js';
-import { PollTimeoutError, pollQueueJob } from './poll.js';
+import { PollTimeoutError, pollPublishJobs, pollQueueJob } from './poll.js';
 import { createTarball } from './tarball.js';
 
 export async function run(): Promise<void> {
@@ -45,6 +47,9 @@ export async function run(): Promise<void> {
     const patched = await client.completeUpload(build.self_url);
     core.info(`Build ${patched.id} marked uploaded; queue url=${patched.queue_url ?? '<none>'}`);
 
+    // Shared budget for build polling and the subsequent publish wait.
+    const deadline = Date.now() + inputs.waitTimeoutMs;
+
     let finalJob: QueueJob | null = null;
     if (inputs.wait) {
       if (!patched.queue_url) {
@@ -56,7 +61,14 @@ export async function run(): Promise<void> {
       core.info(`Queue job ${finalJob.id} reached terminal status ${finalJob.status}`);
     }
 
-    await reportOutcome(client, inputs, patched, finalJob);
+    let publishStatus: PublishStatus = 'skipped';
+    if (inputs.wait && inputs.waitForPublish && finalJob) {
+      publishStatus = await waitForPublish(client, finalJob, Math.max(deadline - Date.now(), 0));
+    } else if (!inputs.wait && inputs.waitForPublish) {
+      core.info('Skipping wait-for-publish because `wait` is off.');
+    }
+
+    await reportOutcome(client, inputs, patched, finalJob, publishStatus);
   } catch (err) {
     handleFailure(err);
   } finally {
@@ -71,6 +83,7 @@ async function reportOutcome(
   inputs: ActionInputs,
   build: Build,
   job: QueueJob | null,
+  publishStatus: PublishStatus,
 ): Promise<void> {
   const editions = await resolveEditions(
     client,
@@ -78,7 +91,7 @@ async function reportOutcome(
     inputs.project,
     extractUpdatedSlugs(job),
   );
-  const outcome = { build, job, editions };
+  const outcome = { build, job, editions, publishStatus };
   emitOutputs(outcome);
   await writeStepSummary(outcome);
 
@@ -105,6 +118,43 @@ async function reportOutcome(
     default:
       core.setFailed(`Unexpected terminal job status: ${job.status}`);
   }
+}
+
+/**
+ * Wait for the `publish_edition` jobs referenced by the completed build job so
+ * the edition is guaranteed live. Publish failures and timeouts are downgraded
+ * to warnings (reflected in the returned status) rather than failing the step;
+ * downstream workflows gate on the `publish-status` output.
+ */
+async function waitForPublish(
+  client: DocverseClient,
+  job: QueueJob,
+  timeoutMs: number,
+): Promise<PublishStatus> {
+  const refs = extractPublishJobs(job);
+  if (refs.length === 0) {
+    return 'skipped';
+  }
+  core.info(`Waiting for ${refs.length} publish job(s) to finish…`);
+
+  let results: Awaited<ReturnType<typeof pollPublishJobs>>;
+  try {
+    results = await pollPublishJobs(client, refs, { timeoutMs });
+  } catch (err) {
+    if (err instanceof PollTimeoutError) {
+      core.warning(`Timed out waiting for editions to publish: ${err.message}`);
+      return 'timed-out';
+    }
+    throw err;
+  }
+
+  const failed = results.filter((r) => r.job.status !== 'completed');
+  for (const { editionSlug, job: publishJob } of failed) {
+    core.warning(
+      `Edition \`${editionSlug}\` did not publish cleanly (status \`${publishJob.status}\`).`,
+    );
+  }
+  return failed.length ? 'failed' : 'published';
 }
 
 /**

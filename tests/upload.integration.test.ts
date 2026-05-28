@@ -163,6 +163,29 @@ describe('upload flow', () => {
     expect(edition.published_url).toBe('https://docs.example/v/tickets-dm-1/');
   });
 
+  it('fetches a queue job by id (publish_edition jobs)', async () => {
+    let requestedJob = '';
+    server.use(
+      http.get(`${BASE_URL}/queue/jobs/:job`, ({ params }) => {
+        requestedJob = params.job as string;
+        return HttpResponse.json(
+          queueJob({
+            self_url: `${BASE_URL}/queue/jobs/whgn-wnz2-tvyx-05`,
+            id: 'whgn-wnz2-tvyx-05',
+            kind: 'publish_edition',
+            status: 'completed',
+            phase: 'publish',
+          }),
+        );
+      }),
+    );
+    const client = new DocverseClient(BASE_URL, 'gt', 'rubin', 'docs');
+    const job = await client.getQueueJobById('whgn-wnz2-tvyx-05');
+    expect(requestedJob).toBe('whgn-wnz2-tvyx-05');
+    expect(job.id).toBe('whgn-wnz2-tvyx-05');
+    expect(job.status).toBe('completed');
+  });
+
   it('maps a 401 from POST builds to an actionable message', async () => {
     server.use(
       http.post(`${BASE_URL}/orgs/:org/projects/:project/builds`, () =>

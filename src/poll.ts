@@ -1,4 +1,5 @@
 import type { DocverseClient, QueueJob } from './client.js';
+import type { PublishJobRef } from './outputs.js';
 
 const INITIAL_DELAY_MS = 1_000;
 const MAX_DELAY_MS = 15_000;
@@ -33,13 +34,19 @@ export class PollTimeoutError extends Error {
   }
 }
 
+/** A `publish_edition` job paired with the edition it published. */
+export interface PublishJobResult {
+  editionSlug: string;
+  job: QueueJob;
+}
+
 /**
  * Poll a queue job until it reaches a terminal state or the timeout expires.
  * Exponential backoff with jitter (1 s → 15 s, jitter up to 50% of the delay).
+ * `fetchJob` is re-invoked each tick to fetch the current job state.
  */
-export async function pollQueueJob(
-  client: DocverseClient,
-  queueUrl: string,
+export async function pollJob(
+  fetchJob: () => Promise<QueueJob>,
   opts: PollOptions,
 ): Promise<QueueJob> {
   const sleep = opts.sleep ?? defaultSleep;
@@ -50,7 +57,7 @@ export async function pollQueueJob(
   let delay = INITIAL_DELAY_MS;
 
   while (true) {
-    const job = await client.getQueueJob(queueUrl);
+    const job = await fetchJob();
     if (TERMINAL_STATUSES.has(job.status)) {
       return job;
     }
@@ -63,6 +70,35 @@ export async function pollQueueJob(
     await sleep(wait);
     delay = Math.min(delay * BACKOFF_FACTOR, MAX_DELAY_MS);
   }
+}
+
+/** Poll the build-processing queue job at `queueUrl` until terminal. */
+export async function pollQueueJob(
+  client: DocverseClient,
+  queueUrl: string,
+  opts: PollOptions,
+): Promise<QueueJob> {
+  return pollJob(() => client.getQueueJob(queueUrl), opts);
+}
+
+/**
+ * Poll every `publish_edition` job concurrently until each is terminal. Each
+ * job shares the same `opts` (in particular the remaining `timeoutMs` budget).
+ * A `PollTimeoutError` from any job rejects the whole batch.
+ */
+export async function pollPublishJobs(
+  client: DocverseClient,
+  refs: PublishJobRef[],
+  opts: PollOptions,
+): Promise<PublishJobResult[]> {
+  return Promise.all(
+    refs.map((ref) =>
+      pollJob(() => client.getQueueJobById(ref.jobId), opts).then((job) => ({
+        editionSlug: ref.editionSlug,
+        job,
+      })),
+    ),
+  );
 }
 
 function defaultSleep(ms: number): Promise<void> {

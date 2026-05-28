@@ -55,6 +55,7 @@ describe('parseInputs', () => {
     expect(inputs.gitRef).toBe('main');
     expect(inputs.baseUrl).toBe('https://roundtable.lsst.cloud/docverse/api');
     expect(inputs.wait).toBe(true);
+    expect(inputs.waitForPublish).toBe(true);
     expect(inputs.waitTimeoutMs).toBe(30 * 60_000);
     expect(inputs.alternateName).toBeNull();
   });
@@ -91,6 +92,18 @@ describe('parseInputs', () => {
 
   it('rejects non-boolean wait', () => {
     setBaseInputs({ wait: 'maybe' });
+    process.env.GITHUB_REF_NAME = 'main';
+    expect(() => parseInputs()).toThrow(InputError);
+  });
+
+  it('parses wait-for-publish: false', () => {
+    setBaseInputs({ wait: 'true', 'wait-for-publish': 'false' });
+    process.env.GITHUB_REF_NAME = 'main';
+    expect(parseInputs().waitForPublish).toBe(false);
+  });
+
+  it('rejects non-boolean wait-for-publish', () => {
+    setBaseInputs({ wait: 'true', 'wait-for-publish': 'maybe' });
     process.env.GITHUB_REF_NAME = 'main';
     expect(() => parseInputs()).toThrow(InputError);
   });

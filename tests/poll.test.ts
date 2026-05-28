@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { DocverseClient, QueueJob } from '../src/client.js';
-import { PollTimeoutError, pollQueueJob } from '../src/poll.js';
+import { PollTimeoutError, pollPublishJobs, pollQueueJob } from '../src/poll.js';
 
 function makeJob(status: QueueJob['status'], phase: string | null = null): QueueJob {
   return {
@@ -34,6 +34,19 @@ function fakeClient(jobs: QueueJob[]): { client: DocverseClient; calls: number }
       return calls;
     },
   } as { client: DocverseClient; calls: number };
+}
+
+/** Fake client exposing `getQueueJobById`, returning a per-id sequence of jobs. */
+function fakePublishClient(jobsById: Record<string, QueueJob[]>): DocverseClient {
+  const calls: Record<string, number> = {};
+  return {
+    getQueueJobById: vi.fn(async (jobId: string) => {
+      const seq = jobsById[jobId]!;
+      const idx = Math.min(calls[jobId] ?? 0, seq.length - 1);
+      calls[jobId] = (calls[jobId] ?? 0) + 1;
+      return seq[idx]!;
+    }),
+  } as unknown as DocverseClient;
 }
 
 describe('pollQueueJob', () => {
@@ -101,6 +114,61 @@ describe('pollQueueJob', () => {
       pollQueueJob(client, 'https://example.test/queue/jobs/JOB1', {
         timeoutMs: 500,
         sleep,
+        random: () => 0,
+        now: () => {
+          const value = now;
+          now += 1_000;
+          return value;
+        },
+      }),
+    ).rejects.toBeInstanceOf(PollTimeoutError);
+  });
+});
+
+describe('pollPublishJobs', () => {
+  const stable = { timeoutMs: 60_000, sleep: vi.fn(), random: () => 0, now: () => 0 };
+
+  it('resolves when every publish job is completed', async () => {
+    const client = fakePublishClient({
+      p1: [makeJob('completed')],
+      p2: [makeJob('completed')],
+    });
+    const results = await pollPublishJobs(
+      client,
+      [
+        { editionSlug: 'main', jobId: 'p1' },
+        { editionSlug: 'v1', jobId: 'p2' },
+      ],
+      stable,
+    );
+    expect(results).toHaveLength(2);
+    expect(results.map((r) => r.editionSlug).sort()).toEqual(['main', 'v1']);
+    expect(results.every((r) => r.job.status === 'completed')).toBe(true);
+  });
+
+  it('returns a failed publish job instead of throwing', async () => {
+    const client = fakePublishClient({
+      p1: [makeJob('completed')],
+      p2: [makeJob('failed')],
+    });
+    const results = await pollPublishJobs(
+      client,
+      [
+        { editionSlug: 'main', jobId: 'p1' },
+        { editionSlug: 'v1', jobId: 'p2' },
+      ],
+      stable,
+    );
+    expect(results.find((r) => r.editionSlug === 'v1')?.job.status).toBe('failed');
+  });
+
+  it('throws PollTimeoutError when a publish job never finishes', async () => {
+    const client = fakePublishClient({ p1: [makeJob('in_progress')] });
+    let now = 0;
+    await expect(
+      pollPublishJobs(client, [{ editionSlug: 'main', jobId: 'p1' }], {
+        timeoutMs: 500,
+        sleep: vi.fn(),
         random: () => 0,
         now: () => {
           const value = now;
