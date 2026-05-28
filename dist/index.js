@@ -28319,6 +28319,12 @@ class DocverseClient {
         const result = await this.callApi(() => this.client.GET('/queue/jobs/{job}', { params: { path: { job: jobId } } }));
         return result;
     }
+    async getEdition(org, project, slug) {
+        const result = await this.callApi(() => this.client.GET('/orgs/{org}/projects/{project}/editions/{edition}', {
+            params: { path: { org, project, edition: slug } },
+        }));
+        return result;
+    }
     async callApi(call) {
         let result;
         try {
@@ -28500,33 +28506,36 @@ function validateDir(dir) {
 ;// CONCATENATED MODULE: ./src/outputs.ts
 
 /**
- * Pull `editions_completed` / `editions_failed` arrays out of a job's
- * progress payload. Both fields are typed `object | null` in OpenAPI, so we
- * defensively normalize.
+ * Pull the slugs of editions updated by this build out of the queue job's
+ * progress payload (`progress.editions_updated[].slug`). `progress` is typed
+ * `object | null` in OpenAPI, so we normalize defensively.
  */
-function extractEditions(job) {
+function extractUpdatedSlugs(job) {
     if (!job?.progress)
-        return { completed: [], failed: [] };
+        return [];
     const progress = job.progress;
-    return {
-        completed: asEditionList(progress.editions_completed),
-        failed: asEditionList(progress.editions_failed),
-    };
-}
-function asEditionList(raw) {
+    const raw = progress.editions_updated;
     if (!Array.isArray(raw))
         return [];
     return raw
         .filter((entry) => typeof entry === 'object' && entry !== null)
-        .map((entry) => entry)
-        .filter((entry) => typeof entry.slug === 'string');
+        .map((entry) => entry.slug)
+        .filter((slug) => typeof slug === 'string');
+}
+/** Trim an edition resource down to the fields surfaced in the action outputs. */
+function toEditionEntry(edition) {
+    return {
+        slug: edition.slug,
+        published_url: edition.published_url ?? undefined,
+        title: edition.title,
+    };
 }
 /**
- * Sort completed editions deterministically by slug ASC and return the first
+ * Sort editions deterministically by slug ASC and return the first
  * `published_url` (or `null` if no edition has one).
  */
-function selectPublishedUrl(completed) {
-    const sorted = [...completed].sort((a, b) => a.slug.localeCompare(b.slug));
+function selectPublishedUrl(editions) {
+    const sorted = [...editions].sort((a, b) => a.slug.localeCompare(b.slug));
     for (const entry of sorted) {
         if (typeof entry.published_url === 'string' && entry.published_url.length > 0) {
             return entry.published_url;
@@ -28535,8 +28544,8 @@ function selectPublishedUrl(completed) {
     return null;
 }
 function emitOutputs(outcome) {
-    const { build, job, editionsCompleted } = outcome;
-    const sorted = [...editionsCompleted].sort((a, b) => a.slug.localeCompare(b.slug));
+    const { build, job, editions } = outcome;
+    const sorted = [...editions].sort((a, b) => a.slug.localeCompare(b.slug));
     core.setOutput('build-id', build.id);
     core.setOutput('build-url', build.self_url);
     core.setOutput('published-url', selectPublishedUrl(sorted) ?? '');
@@ -28544,7 +28553,7 @@ function emitOutputs(outcome) {
     core.setOutput('editions-json', JSON.stringify(sorted));
 }
 async function writeStepSummary(outcome) {
-    const { build, job, editionsCompleted, editionsFailed } = outcome;
+    const { build, job, editions } = outcome;
     const summary = core.summary
         .addHeading('Docverse upload', 2)
         .addRaw(`Build \`${build.id}\` — status \`${build.status}\``)
@@ -28557,17 +28566,13 @@ async function writeStepSummary(outcome) {
             summary.addRaw(`Last phase: \`${job.phase}\``).addEOL();
         }
     }
-    if (editionsCompleted.length > 0) {
+    if (editions.length > 0) {
         const rows = [['Slug', 'Title', 'Published URL']];
-        for (const entry of [...editionsCompleted].sort((a, b) => a.slug.localeCompare(b.slug))) {
+        for (const entry of [...editions].sort((a, b) => a.slug.localeCompare(b.slug))) {
             rows.push([entry.slug, entry.title ?? '', entry.published_url ?? '']);
         }
-        summary.addHeading('Editions completed', 3);
+        summary.addHeading('Editions updated', 3);
         summary.addTable(rows.map((row, idx) => row.map((cell) => ({ data: cell, header: idx === 0 }))));
-    }
-    if (editionsFailed.length > 0) {
-        summary.addHeading('Editions failed', 3);
-        summary.addList(editionsFailed.map((entry) => entry.slug));
     }
     await summary.write();
 }
@@ -28759,7 +28764,7 @@ async function run() {
             });
             core.info(`Queue job ${finalJob.id} reached terminal status ${finalJob.status}`);
         }
-        await reportOutcome(patched, finalJob, inputs.wait);
+        await reportOutcome(client, inputs, patched, finalJob);
     }
     catch (err) {
         handleFailure(err);
@@ -28770,26 +28775,19 @@ async function run() {
         }
     }
 }
-async function reportOutcome(build, job, waited) {
-    const { completed, failed } = extractEditions(job);
-    const outcome = {
-        build,
-        job,
-        editionsCompleted: completed,
-        editionsFailed: failed,
-    };
+async function reportOutcome(client, inputs, build, job) {
+    const editions = await resolveEditions(client, inputs.org, inputs.project, extractUpdatedSlugs(job));
+    const outcome = { build, job, editions };
     emitOutputs(outcome);
     await writeStepSummary(outcome);
-    if (!waited || !job) {
+    if (!inputs.wait || !job) {
         return;
     }
     switch (job.status) {
         case 'completed':
             return;
         case 'completed_with_errors':
-            for (const entry of failed) {
-                annotateFailedEdition(entry);
-            }
+            core.warning(`Build processing completed with errors (phase=${job.phase ?? 'unknown'}): ${formatJobError(job)}`);
             return;
         case 'failed':
             core.setFailed(`Build processing failed (phase=${job.phase ?? 'unknown'}): ${formatJobError(job)}`);
@@ -28801,9 +28799,25 @@ async function reportOutcome(build, job, waited) {
             core.setFailed(`Unexpected terminal job status: ${job.status}`);
     }
 }
-function annotateFailedEdition(entry) {
-    const msg = typeof entry.error === 'string' ? entry.error : 'edition failed';
-    core.warning(`Edition \`${entry.slug}\`: ${msg}`);
+/**
+ * Resolve `published_url`/`title` for each updated edition. The queue-job
+ * progress only names the updated slugs; the published URL lives on the
+ * edition resource, so we fetch each one. A failed lookup degrades to a
+ * slug-only entry rather than failing the whole action.
+ */
+async function resolveEditions(client, org, project, slugs) {
+    const editions = [];
+    for (const slug of slugs) {
+        try {
+            editions.push(toEditionEntry(await client.getEdition(org, project, slug)));
+        }
+        catch (err) {
+            const message = err instanceof Error ? err.message : String(err);
+            core.warning(`Could not resolve published URL for edition \`${slug}\`: ${message}`);
+            editions.push({ slug });
+        }
+    }
+    return editions;
 }
 function formatJobError(job) {
     if (job.errors && typeof job.errors === 'object') {

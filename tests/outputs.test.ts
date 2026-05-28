@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import type { QueueJob } from '../src/client.js';
-import { extractEditions, selectPublishedUrl } from '../src/outputs.js';
+import type { Edition, QueueJob } from '../src/client.js';
+import { extractUpdatedSlugs, selectPublishedUrl, toEditionEntry } from '../src/outputs.js';
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -23,23 +23,65 @@ function makeJob(progress: unknown): QueueJob {
   };
 }
 
-describe('extractEditions', () => {
-  it('pulls completed and failed lists out of progress', () => {
+describe('extractUpdatedSlugs', () => {
+  it('pulls slugs out of editions_updated', () => {
     const job = makeJob({
-      editions_completed: [
-        { slug: 'main', published_url: 'https://x/main/' },
-        { slug: 'v1', published_url: 'https://x/v1/' },
+      editions_updated: [
+        { slug: 'tickets-DM-1', action: 'updated' },
+        { slug: 'main', action: 'created' },
       ],
-      editions_failed: [{ slug: 'broken', error: 'boom' }],
+      editions_skipped: [{ slug: 'v1' }],
+      publish_jobs: [{ edition_slug: 'tickets-DM-1', publish_queue_job_public_id: 'p1' }],
     });
-    const { completed, failed } = extractEditions(job);
-    expect(completed.map((e) => e.slug)).toEqual(['main', 'v1']);
-    expect(failed.map((e) => e.slug)).toEqual(['broken']);
+    expect(extractUpdatedSlugs(job)).toEqual(['tickets-DM-1', 'main']);
   });
 
-  it('returns empty arrays when progress is null', () => {
-    expect(extractEditions(null)).toEqual({ completed: [], failed: [] });
-    expect(extractEditions(makeJob(null))).toEqual({ completed: [], failed: [] });
+  it('ignores entries without a string slug and non-array payloads', () => {
+    expect(extractUpdatedSlugs(makeJob({ editions_updated: [{ action: 'updated' }, 42] }))).toEqual(
+      [],
+    );
+    expect(extractUpdatedSlugs(makeJob({ editions_updated: 'nope' }))).toEqual([]);
+  });
+
+  it('returns an empty array when progress is missing', () => {
+    expect(extractUpdatedSlugs(null)).toEqual([]);
+    expect(extractUpdatedSlugs(makeJob(null))).toEqual([]);
+    expect(extractUpdatedSlugs(makeJob({}))).toEqual([]);
+  });
+});
+
+describe('toEditionEntry', () => {
+  function makeEdition(overrides: Partial<Edition> = {}): Edition {
+    return {
+      self_url: 'https://example.test/orgs/o/projects/p/editions/main',
+      project_url: 'https://example.test/orgs/o/projects/p',
+      build_url: null,
+      published_url: 'https://docs/main/',
+      history_url: 'https://example.test/orgs/o/projects/p/editions/main/history',
+      rollback_url: 'https://example.test/orgs/o/projects/p/editions/main/rollback',
+      slug: 'main',
+      title: 'Main',
+      kind: 'main',
+      tracking_mode: 'git_ref',
+      tracking_params: null,
+      lifecycle_exempt: true,
+      publish_status: null,
+      date_created: '2026-05-28T00:00:00Z',
+      date_updated: '2026-05-28T00:00:00Z',
+      ...overrides,
+    } as Edition;
+  }
+
+  it('keeps slug, title and published_url', () => {
+    expect(toEditionEntry(makeEdition())).toEqual({
+      slug: 'main',
+      title: 'Main',
+      published_url: 'https://docs/main/',
+    });
+  });
+
+  it('drops a null published_url', () => {
+    expect(toEditionEntry(makeEdition({ published_url: null })).published_url).toBeUndefined();
   });
 });
 

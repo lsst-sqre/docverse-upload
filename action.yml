@@ -45,11 +45,11 @@ outputs:
   build-url:
     description: 'HATEOAS `self_url` of the build resource.'
   published-url:
-    description: 'First `published_url` from `editions_completed` after sorting by slug ASC.'
+    description: 'First `published_url` among the updated editions, sorted by slug ASC.'
   job-status:
     description: 'Terminal queue-job status (or `queued` when `wait: false`).'
   editions-json:
-    description: 'JSON array of all `editions_completed` entries (sorted by slug).'
+    description: 'JSON array of the updated editions (`slug`, `title`, `published_url`), sorted by slug.'
 runs:
   using: 'node24'
   main: 'dist/index.js'

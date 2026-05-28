@@ -50,11 +50,13 @@ The action performs the full upload workflow:
 | --------------- | ----------- |
 | `build-id`      | Crockford Base32 build ID. |
 | `build-url`     | HATEOAS `self_url` of the build resource. |
-| `published-url` | First `published_url` from `editions_completed` after sorting by slug ASC. |
+| `published-url` | First `published_url` among the updated editions, sorted by slug ASC. |
 | `job-status`    | Terminal queue-job status (`completed`, `completed_with_errors`, `failed`, `cancelled`) — or `queued` when `wait: false`. |
-| `editions-json` | JSON array of all `editions_completed` entries (sorted by slug). |
+| `editions-json` | JSON array of the updated editions (`slug`, `title`, `published_url`), sorted by slug. |
 
-`completed_with_errors` is treated as **success** for the step result. The action emits a `core.warning()` annotation per failed edition; workflows that need strict behavior should gate downstream steps on `job-status == 'completed'`.
+The build-processing queue job reports the slugs it updated (`progress.editions_updated`) but not their public URLs — `published_url` lives on the edition resource. The action therefore fetches each updated edition to resolve `published-url` and `editions-json`.
+
+`completed_with_errors` is treated as **success** for the step result; the action emits a `core.warning()` annotation summarizing the job errors. Workflows that need strict behavior should gate downstream steps on `job-status == 'completed'`.
 
 ## Authentication
 

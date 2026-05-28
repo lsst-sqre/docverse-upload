@@ -2,8 +2,14 @@ import * as core from '@actions/core';
 import { detectGithubActionsAnnotations } from './annotations.js';
 import { ApiError, DocverseClient, NetworkError, uploadTarball } from './client.js';
 import type { Build, QueueJob } from './client.js';
-import { InputError, parseInputs } from './inputs.js';
-import { type EditionEntry, emitOutputs, extractEditions, writeStepSummary } from './outputs.js';
+import { type ActionInputs, InputError, parseInputs } from './inputs.js';
+import {
+  type EditionEntry,
+  emitOutputs,
+  extractUpdatedSlugs,
+  toEditionEntry,
+  writeStepSummary,
+} from './outputs.js';
 import { PollTimeoutError, pollQueueJob } from './poll.js';
 import { createTarball } from './tarball.js';
 
@@ -50,7 +56,7 @@ export async function run(): Promise<void> {
       core.info(`Queue job ${finalJob.id} reached terminal status ${finalJob.status}`);
     }
 
-    await reportOutcome(patched, finalJob, inputs.wait);
+    await reportOutcome(client, inputs, patched, finalJob);
   } catch (err) {
     handleFailure(err);
   } finally {
@@ -60,18 +66,23 @@ export async function run(): Promise<void> {
   }
 }
 
-async function reportOutcome(build: Build, job: QueueJob | null, waited: boolean): Promise<void> {
-  const { completed, failed } = extractEditions(job);
-  const outcome = {
-    build,
-    job,
-    editionsCompleted: completed,
-    editionsFailed: failed,
-  };
+async function reportOutcome(
+  client: DocverseClient,
+  inputs: ActionInputs,
+  build: Build,
+  job: QueueJob | null,
+): Promise<void> {
+  const editions = await resolveEditions(
+    client,
+    inputs.org,
+    inputs.project,
+    extractUpdatedSlugs(job),
+  );
+  const outcome = { build, job, editions };
   emitOutputs(outcome);
   await writeStepSummary(outcome);
 
-  if (!waited || !job) {
+  if (!inputs.wait || !job) {
     return;
   }
 
@@ -79,9 +90,9 @@ async function reportOutcome(build: Build, job: QueueJob | null, waited: boolean
     case 'completed':
       return;
     case 'completed_with_errors':
-      for (const entry of failed) {
-        annotateFailedEdition(entry);
-      }
+      core.warning(
+        `Build processing completed with errors (phase=${job.phase ?? 'unknown'}): ${formatJobError(job)}`,
+      );
       return;
     case 'failed':
       core.setFailed(
@@ -96,9 +107,29 @@ async function reportOutcome(build: Build, job: QueueJob | null, waited: boolean
   }
 }
 
-function annotateFailedEdition(entry: EditionEntry): void {
-  const msg = typeof entry.error === 'string' ? entry.error : 'edition failed';
-  core.warning(`Edition \`${entry.slug}\`: ${msg}`);
+/**
+ * Resolve `published_url`/`title` for each updated edition. The queue-job
+ * progress only names the updated slugs; the published URL lives on the
+ * edition resource, so we fetch each one. A failed lookup degrades to a
+ * slug-only entry rather than failing the whole action.
+ */
+async function resolveEditions(
+  client: DocverseClient,
+  org: string,
+  project: string,
+  slugs: string[],
+): Promise<EditionEntry[]> {
+  const editions: EditionEntry[] = [];
+  for (const slug of slugs) {
+    try {
+      editions.push(toEditionEntry(await client.getEdition(org, project, slug)));
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      core.warning(`Could not resolve published URL for edition \`${slug}\`: ${message}`);
+      editions.push({ slug });
+    }
+  }
+  return editions;
 }
 
 function formatJobError(job: QueueJob): string {

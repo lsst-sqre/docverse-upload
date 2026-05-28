@@ -92,12 +92,14 @@ describe('upload flow', () => {
       http.get(`${BASE_URL}/queue/jobs/:job`, () =>
         HttpResponse.json(
           queueJob({
+            phase: 'complete',
             progress: {
-              editions_completed: [
-                { slug: 'main', published_url: 'https://docs/main/', title: 'main' },
-                { slug: 'v1', published_url: 'https://docs/v1/', title: 'v1' },
+              message: 'Build processing complete',
+              editions_updated: [{ slug: 'main', action: 'updated' }],
+              editions_skipped: [],
+              publish_jobs: [
+                { edition_slug: 'main', publish_queue_job_public_id: 'whgn-wnz2-tvyx-05' },
               ],
-              editions_failed: [],
             },
           }),
         ),
@@ -131,6 +133,34 @@ describe('upload flow', () => {
       now: () => 0,
     });
     expect(job.status).toBe('completed');
+  });
+
+  it('fetches an edition resource to resolve its published_url', async () => {
+    server.use(
+      http.get(`${BASE_URL}/orgs/:org/projects/:project/editions/:edition`, ({ params }) =>
+        HttpResponse.json({
+          self_url: `${BASE_URL}/orgs/rubin/projects/docs/editions/${params.edition}`,
+          project_url: `${BASE_URL}/orgs/rubin/projects/docs`,
+          build_url: `${BASE_URL}/orgs/rubin/projects/docs/builds/B1`,
+          published_url: 'https://docs.example/v/tickets-dm-1/',
+          history_url: `${BASE_URL}/orgs/rubin/projects/docs/editions/${params.edition}/history`,
+          rollback_url: `${BASE_URL}/orgs/rubin/projects/docs/editions/${params.edition}/rollback`,
+          slug: params.edition,
+          title: 'tickets-DM-1',
+          kind: 'draft',
+          tracking_mode: 'git_ref',
+          tracking_params: { git_ref: 'tickets/DM-1' },
+          lifecycle_exempt: false,
+          publish_status: null,
+          date_created: '2026-05-28T00:00:00Z',
+          date_updated: '2026-05-28T00:02:00Z',
+        }),
+      ),
+    );
+    const client = new DocverseClient(BASE_URL, 'gt', 'rubin', 'docs');
+    const edition = await client.getEdition('rubin', 'docs', 'tickets-dm-1');
+    expect(edition.slug).toBe('tickets-dm-1');
+    expect(edition.published_url).toBe('https://docs.example/v/tickets-dm-1/');
   });
 
   it('maps a 401 from POST builds to an actionable message', async () => {

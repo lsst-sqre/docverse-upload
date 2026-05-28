@@ -9,6 +9,7 @@ import { formatApiError, formatNetworkError, formatUploadError } from './errors.
 
 export type Build = components['schemas']['Build'];
 export type QueueJob = components['schemas']['QueueJob'];
+export type Edition = components['schemas']['docverse__handlers__orgs__models__Edition'];
 
 type Fetch = typeof globalThis.fetch;
 type OpenapiFetchClient = ReturnType<typeof createOpenapiFetch<paths>>;
@@ -90,6 +91,15 @@ export class DocverseClient {
       this.client.GET('/queue/jobs/{job}', { params: { path: { job: jobId } } }),
     );
     return result as QueueJob;
+  }
+
+  async getEdition(org: string, project: string, slug: string): Promise<Edition> {
+    const result = await this.callApi(() =>
+      this.client.GET('/orgs/{org}/projects/{project}/editions/{edition}', {
+        params: { path: { org, project, edition: slug } },
+      }),
+    );
+    return result as Edition;
   }
 
   private async callApi<T>(
