@@ -1,0 +1,55 @@
+name: 'Docverse Upload'
+description: 'Upload a built documentation directory to Docverse.'
+author: 'Rubin Observatory / SQuaRE'
+branding:
+  icon: 'upload-cloud'
+  color: 'blue'
+inputs:
+  org:
+    description: 'Docverse organization slug.'
+    required: true
+  project:
+    description: 'Docverse project slug.'
+    required: true
+  dir:
+    description: 'Path to the built documentation directory.'
+    required: true
+  token:
+    description: 'Gafaelfawr bearer token. Typically `${{ secrets.DOCVERSE_TOKEN }}`.'
+    required: true
+  base-url:
+    description: 'Docverse API base URL.'
+    required: false
+    default: 'https://roundtable.lsst.cloud/docverse/api'
+  git-ref:
+    description: |-
+      Short branch or tag name to send as the build's `git_ref`.
+      Defaults to `$GITHUB_HEAD_REF` (on `pull_request`) or `$GITHUB_REF_NAME`.
+    required: false
+    default: ''
+  alternate-name:
+    description: 'Alternate name for scoped editions.'
+    required: false
+    default: ''
+  wait:
+    description: 'Wait for build processing to complete (`true` or `false`).'
+    required: false
+    default: 'true'
+  wait-timeout:
+    description: 'Maximum minutes to wait for the queue job to reach a terminal state.'
+    required: false
+    default: '30'
+outputs:
+  build-id:
+    description: 'Crockford Base32 build ID.'
+  build-url:
+    description: 'HATEOAS `self_url` of the build resource.'
+  published-url:
+    description: 'First `published_url` from `editions_completed` after sorting by slug ASC.'
+  job-status:
+    description: 'Terminal queue-job status (or `queued` when `wait: false`).'
+  editions-json:
+    description: 'JSON array of all `editions_completed` entries (sorted by slug).'
+runs:
+  using: 'node20'
+  main: 'dist/index.js'

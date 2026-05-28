@@ -1,0 +1,39 @@
+{
+  "name": "docverse-upload",
+  "version": "0.0.0",
+  "private": true,
+  "description": "GitHub Action for uploading documentation builds to Docverse",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "packageManager": "pnpm@10.20.0",
+  "scripts": {
+    "build": "ncc build src/index.ts -o dist --source-map --license licenses.txt --transpile-only",
+    "typecheck": "tsc --noEmit",
+    "lint": "biome check .",
+    "lint:fix": "biome check --write .",
+    "format": "biome format --write .",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "prep-openapi": "node scripts/prep-openapi.mjs",
+    "generate-types": "openapi-typescript openapi.json --output generated/api-types.ts"
+  },
+  "dependencies": {
+    "@actions/core": "^1.11.1",
+    "openapi-fetch": "^0.13.5",
+    "tar": "^7.4.3"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^1.9.4",
+    "@types/node": "^22.10.5",
+    "@vercel/ncc": "^0.38.3",
+    "msw": "^2.7.0",
+    "openapi-typescript": "^7.5.2",
+    "typescript": "^5.7.3",
+    "vitest": "^2.1.8"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": ["@biomejs/biome", "esbuild", "msw"]
+  }
+}

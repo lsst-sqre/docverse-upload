@@ -1,0 +1,9 @@
+pre-commit:
+  parallel: false
+  commands:
+    biome:
+      glob: '*.{ts,js,mjs,json}'
+      run: pnpm biome check --write {staged_files} && git add {staged_files}
+    bundle:
+      glob: 'src/**/*.ts'
+      run: pnpm generate-types && pnpm build && git add generated/ dist/

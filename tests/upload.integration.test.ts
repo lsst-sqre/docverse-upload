@@ -1,0 +1,248 @@
+import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { http, HttpResponse } from 'msw';
+import { setupServer } from 'msw/node';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { ApiError, DocverseClient, uploadTarball } from '../src/client.js';
+import { pollQueueJob } from '../src/poll.js';
+
+const BASE_URL = 'https://example.test/docverse/api';
+const UPLOAD_HOST = 'https://uploads.example.test';
+
+const server = setupServer();
+
+beforeAll(() => server.listen({ onUnhandledRequest: 'error' }));
+afterEach(() => server.resetHandlers());
+afterAll(() => server.close());
+
+let workDir = '';
+beforeEach(async () => {
+  workDir = await mkdtemp(join(tmpdir(), 'docverse-int-'));
+  await writeFile(join(workDir, 'index.html'), 'hello');
+});
+afterEach(async () => {
+  if (workDir) await rm(workDir, { recursive: true, force: true });
+});
+
+function buildResource(overrides: Record<string, unknown> = {}) {
+  return {
+    self_url: `${BASE_URL}/orgs/rubin/projects/docs/builds/B1`,
+    project_url: `${BASE_URL}/orgs/rubin/projects/docs`,
+    id: 'B1',
+    git_ref: 'main',
+    alternate_name: null,
+    content_hash: 'sha256:0'.padEnd(7 + 64, '0'),
+    status: 'pending',
+    upload_url: `${UPLOAD_HOST}/upload/B1?signature=abc`,
+    queue_url: null,
+    object_count: null,
+    total_size_bytes: null,
+    uploader: 'tester',
+    annotations: null,
+    date_created: '2026-05-28T00:00:00Z',
+    date_uploaded: null,
+    date_completed: null,
+    ...overrides,
+  };
+}
+
+function queueJob(overrides: Record<string, unknown> = {}) {
+  return {
+    self_url: `${BASE_URL}/queue/jobs/JOB1`,
+    id: 'JOB1',
+    kind: 'build_processing',
+    status: 'completed',
+    phase: 'editions',
+    progress: null,
+    errors: null,
+    date_created: '2026-05-28T00:01:00Z',
+    date_started: '2026-05-28T00:01:01Z',
+    date_completed: '2026-05-28T00:02:00Z',
+    keeper_sync_run_id: null,
+    subject_label: null,
+    ...overrides,
+  };
+}
+
+describe('upload flow', () => {
+  it('runs create → upload → patch → poll happy path', async () => {
+    let createdHeader = '';
+    let putHeader: string | null = '';
+    let patchBody: unknown = null;
+
+    server.use(
+      http.post(`${BASE_URL}/orgs/:org/projects/:project/builds`, async ({ request }) => {
+        createdHeader = request.headers.get('authorization') ?? '';
+        return HttpResponse.json(buildResource(), { status: 201 });
+      }),
+      http.put(`${UPLOAD_HOST}/upload/:id`, ({ request }) => {
+        putHeader = request.headers.get('authorization');
+        return new HttpResponse(null, { status: 200 });
+      }),
+      http.patch(`${BASE_URL}/orgs/:org/projects/:project/builds/:build`, async ({ request }) => {
+        patchBody = await request.json();
+        return HttpResponse.json(
+          buildResource({ status: 'uploaded', queue_url: `${BASE_URL}/queue/jobs/JOB1` }),
+        );
+      }),
+      http.get(`${BASE_URL}/queue/jobs/:job`, () =>
+        HttpResponse.json(
+          queueJob({
+            progress: {
+              editions_completed: [
+                { slug: 'main', published_url: 'https://docs/main/', title: 'main' },
+                { slug: 'v1', published_url: 'https://docs/v1/', title: 'v1' },
+              ],
+              editions_failed: [],
+            },
+          }),
+        ),
+      ),
+    );
+
+    const client = new DocverseClient(BASE_URL, 'gt-test', 'rubin', 'docs');
+
+    const build = await client.createBuild({
+      org: 'rubin',
+      project: 'docs',
+      gitRef: 'main',
+      contentHash: 'sha256:0'.padEnd(7 + 64, '0'),
+      alternateName: null,
+      annotations: null,
+    });
+    expect(build.upload_url).toContain(UPLOAD_HOST);
+    expect(createdHeader).toBe('Bearer gt-test');
+
+    await uploadTarball(build.upload_url!, join(workDir, 'index.html'));
+    expect(putHeader).toBeNull();
+
+    const patched = await client.completeUpload(build.self_url);
+    expect(patched.queue_url).toContain('/queue/jobs/JOB1');
+    expect(patchBody).toEqual({ status: 'uploaded' });
+
+    const job = await pollQueueJob(client, patched.queue_url!, {
+      timeoutMs: 60_000,
+      sleep: async () => {},
+      random: () => 0,
+      now: () => 0,
+    });
+    expect(job.status).toBe('completed');
+  });
+
+  it('maps a 401 from POST builds to an actionable message', async () => {
+    server.use(
+      http.post(`${BASE_URL}/orgs/:org/projects/:project/builds`, () =>
+        HttpResponse.json({ detail: 'invalid token' }, { status: 401 }),
+      ),
+    );
+    const client = new DocverseClient(BASE_URL, 'gt-bad', 'rubin', 'docs');
+    await expect(
+      client.createBuild({
+        org: 'rubin',
+        project: 'docs',
+        gitRef: 'main',
+        contentHash: 'sha256:0'.padEnd(7 + 64, '0'),
+        alternateName: null,
+        annotations: null,
+      }),
+    ).rejects.toMatchObject({
+      message: expect.stringContaining('Authentication failed'),
+    });
+  });
+
+  it('maps a 403 from POST builds to a role-focused message', async () => {
+    server.use(
+      http.post(`${BASE_URL}/orgs/:org/projects/:project/builds`, () =>
+        HttpResponse.json({ detail: 'forbidden' }, { status: 403 }),
+      ),
+    );
+    const client = new DocverseClient(BASE_URL, 'gt', 'rubin', 'docs');
+    await expect(
+      client.createBuild({
+        org: 'rubin',
+        project: 'docs',
+        gitRef: 'main',
+        contentHash: 'sha256:0'.padEnd(7 + 64, '0'),
+        alternateName: null,
+        annotations: null,
+      }),
+    ).rejects.toMatchObject({
+      message: expect.stringContaining('`uploader` role'),
+    });
+  });
+
+  it('maps a 422 from POST builds with FastAPI-style validation detail', async () => {
+    server.use(
+      http.post(`${BASE_URL}/orgs/:org/projects/:project/builds`, () =>
+        HttpResponse.json(
+          {
+            detail: [
+              {
+                loc: ['body', 'content_hash'],
+                msg: 'pattern mismatch',
+                type: 'string_pattern_mismatch',
+              },
+            ],
+          },
+          { status: 422 },
+        ),
+      ),
+    );
+    const client = new DocverseClient(BASE_URL, 'gt', 'rubin', 'docs');
+    await expect(
+      client.createBuild({
+        org: 'rubin',
+        project: 'docs',
+        gitRef: 'main',
+        contentHash: 'sha256:bad',
+        alternateName: null,
+        annotations: null,
+      }),
+    ).rejects.toMatchObject({
+      message: expect.stringContaining('body.content_hash: pattern mismatch'),
+    });
+  });
+
+  it('reports an actionable error when the presigned PUT fails', async () => {
+    server.use(
+      http.put(
+        `${UPLOAD_HOST}/upload/:id`,
+        () => new HttpResponse('<Error>SignatureDoesNotMatch</Error>', { status: 403 }),
+      ),
+    );
+    await expect(
+      uploadTarball(`${UPLOAD_HOST}/upload/abc`, join(workDir, 'index.html')),
+    ).rejects.toMatchObject({
+      message: expect.stringContaining('SignatureDoesNotMatch'),
+    });
+    await expect(
+      uploadTarball(`${UPLOAD_HOST}/upload/abc`, join(workDir, 'index.html')),
+    ).rejects.toBeInstanceOf(ApiError);
+  });
+
+  it('passes annotations through to the create-build request', async () => {
+    type CreateBody = { annotations?: Record<string, string>; alternate_name?: string };
+    const received: { body: CreateBody | null } = { body: null };
+    server.use(
+      http.post(`${BASE_URL}/orgs/:org/projects/:project/builds`, async ({ request }) => {
+        received.body = (await request.json()) as CreateBody;
+        return HttpResponse.json(buildResource(), { status: 201 });
+      }),
+    );
+    const client = new DocverseClient(BASE_URL, 'gt', 'rubin', 'docs');
+    await client.createBuild({
+      org: 'rubin',
+      project: 'docs',
+      gitRef: 'main',
+      contentHash: 'sha256:0'.padEnd(7 + 64, '0'),
+      alternateName: 'usdf-dev',
+      annotations: { commit_sha: 'cafe', ci_platform: 'github-actions' },
+    });
+    expect(received.body?.annotations).toEqual({
+      commit_sha: 'cafe',
+      ci_platform: 'github-actions',
+    });
+    expect(received.body?.alternate_name).toBe('usdf-dev');
+  });
+});
