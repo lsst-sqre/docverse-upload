@@ -112,4 +112,30 @@ describe('parseInputs', () => {
     setBaseInputs();
     expect(() => parseInputs()).toThrow(InputError);
   });
+
+  it('defaults comment-on-pr to true and github-token to null', () => {
+    setBaseInputs();
+    process.env.GITHUB_REF_NAME = 'main';
+    const inputs = parseInputs();
+    expect(inputs.commentOnPr).toBe(true);
+    expect(inputs.githubToken).toBeNull();
+  });
+
+  it('parses comment-on-pr: false', () => {
+    setBaseInputs({ 'comment-on-pr': 'false' });
+    process.env.GITHUB_REF_NAME = 'main';
+    expect(parseInputs().commentOnPr).toBe(false);
+  });
+
+  it('rejects non-boolean comment-on-pr', () => {
+    setBaseInputs({ 'comment-on-pr': 'maybe' });
+    process.env.GITHUB_REF_NAME = 'main';
+    expect(() => parseInputs()).toThrow(InputError);
+  });
+
+  it('reads a github-token input', () => {
+    setBaseInputs({ 'github-token': 'ghs-abc' });
+    process.env.GITHUB_REF_NAME = 'main';
+    expect(parseInputs().githubToken).toBe('ghs-abc');
+  });
 });

@@ -45,6 +45,8 @@ The action performs the full upload workflow:
 | `wait`           | no       | `true`                                             | Wait for processing to complete. When `false`, the action returns right after PATCH. |
 | `wait-for-publish` | no     | `true`                                             | After build processing, wait for the `publish_edition` jobs so the edition is live. Only effective when `wait: true`. Failures/timeouts warn rather than failing the step. |
 | `wait-timeout`   | no       | `30`                                               | Maximum minutes to wait for the queue job to reach a terminal state. |
+| `github-token`   | no       | —                                                  | GitHub token used to post (and update in place) a PR comment linking to the updated editions, typically `${{ github.token }}`. Requires `pull-requests: write`. Omitted ⇒ commenting disabled. |
+| `comment-on-pr`  | no       | `true`                                             | Post the PR comment (`true`/`false`). When `false`, commenting is disabled even if `github-token` is set — for dev-server workflows that should keep uploading but stay silent on PRs. |
 
 ## Outputs
 
@@ -107,7 +109,43 @@ jobs:
 
 The action sends `$GITHUB_HEAD_REF` as the build's `git_ref` on `pull_request` events, which is what Docverse uses to scope PR-preview editions.
 
-> Note: posting a PR comment with the preview URL is **not yet implemented**. Read the action's `published-url` output and post the comment from a downstream step if needed. With the default `wait-for-publish: true`, the edition is guaranteed live when `publish-status == 'published'` — gate the "preview ready" comment on that so the link never 404s.
+## Pull request comments
+
+When `github-token` is set (and `comment-on-pr` is left at its `true` default), the action posts a comment on the associated pull request linking to every edition this build updated, and **updates that same comment in place** on each subsequent run instead of piling new comments up.
+
+```yaml
+on: { pull_request: {} }
+permissions:
+  contents: read
+  pull-requests: write   # required for the github-token to comment
+jobs:
+  docs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: make html
+      - uses: lsst-sqre/docverse-upload@v1
+        with:
+          org: rubin
+          project: my-docs
+          dir: build/html
+          token: ${{ secrets.DOCVERSE_TOKEN }}
+          github-token: ${{ github.token }}
+```
+
+The comment renders a Markdown table of the updated editions and their published URLs. A failed/cancelled build reports the failure and build ID instead of a table; a partial build (`completed_with_errors`) lists failed and skipped editions in a collapsible block below the successful ones. When `publish-status` is not `published`, the comment notes that links may 404 until the editions finish publishing.
+
+**PR discovery** mirrors the build's `git_ref` handling: on `pull_request`/`pull_request_target` events the triggering PR is used; on `push` events the action looks up every open PR whose head is the pushed branch (commenting on each); other events are skipped silently. A missing PR context, a `false` `comment-on-pr`, or a `github-token` that lacks `pull-requests: write` (the API returns 403) all degrade to a log line or warning — never a failed step, since the upload already succeeded.
+
+**Update-in-place dedup.** The action finds its own comment via a hidden HTML marker at the top of the body:
+
+```
+<!-- docverse:pr-comment:{host}:{org}/{project} -->
+```
+
+The marker is scoped by **server host** as well as `{org}/{project}`. This is deliberate: during development the same repo/PR often uploads to both a dev Docverse *server* and the production *org* under the same `{org}/{project}` slug. Scoping by host (`new URL(base-url).host`, including any port) keeps the dev and prod comments as two separate, independently-updated comments instead of clobbering each other. Repositories that publish to multiple Docverse projects likewise get one comment per project.
+
+Set `comment-on-pr: false` to keep uploading (e.g. from a dev-server workflow gathering data) while silencing the PR comments.
 
 ## Development
 
