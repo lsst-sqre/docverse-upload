@@ -1,0 +1,49 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: pnpm/action-setup@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint
+        run: pnpm biome ci .
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Test
+        run: pnpm test
+
+      - name: Generate types
+        run: pnpm generate-types
+
+      - name: Build bundle
+        run: pnpm build
+
+      - name: Verify generated/ and dist/ are up to date
+        run: |
+          if ! git diff --exit-code generated/ dist/; then
+            echo "::error::generated/ or dist/ is out of sync. Run \`pnpm generate-types && pnpm build\` and commit the result."
+            exit 1
+          fi

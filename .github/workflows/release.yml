@@ -1,0 +1,64 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - uses: pnpm/action-setup@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          cache: pnpm
+
+      - uses: astral-sh/setup-uv@v8.1.0
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Verify dist/ matches source
+        run: |
+          pnpm generate-types
+          pnpm build
+          if ! git diff --exit-code generated/ dist/; then
+            echo "::error::generated/ or dist/ is out of sync with src/. Cannot release."
+            exit 1
+          fi
+
+      - name: Update floating major-version tag
+        uses: nowactions/update-majorver@v1
+
+      - name: Collect changelog notes
+        id: changelog
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          VERSION="${TAG#v}"
+          uvx scriv collect --version "$VERSION" --keep
+          NOTES_FILE="$(mktemp)"
+          # `scriv collect` writes into CHANGELOG.md; extract the new section.
+          awk -v ver="$VERSION" '
+            $0 ~ "^## "ver"( |$)" {flag=1; next}
+            flag && /^## / {exit}
+            flag {print}
+          ' CHANGELOG.md > "$NOTES_FILE"
+          echo "notes_file=$NOTES_FILE" >> "$GITHUB_OUTPUT"
+
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" \
+            --title "$GITHUB_REF_NAME" \
+            --notes-file "${{ steps.changelog.outputs.notes_file }}"

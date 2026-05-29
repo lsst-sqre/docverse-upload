@@ -80,8 +80,9 @@ out
 
 # Nuxt.js build / generate output
 .nuxt
-dist
 .output
+
+# Local bundler temp output (dist/ is committed for this action)
 
 # Gatsby files
 .cache/
