@@ -50,7 +50,7 @@ inputs:
     description: |-
       GitHub token used to post (and update in place) a comment on the
       associated pull request linking to the updated editions. Typically
-      `${{ github.token }}`. Requires `pull-requests: write` permission.
+      set to `github.token`. Requires `pull-requests: write` permission.
       When omitted, PR commenting is disabled.
     required: false
     default: ''
