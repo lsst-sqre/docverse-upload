@@ -108,7 +108,7 @@ describe('renderCommentBody', () => {
     });
     expect(renderCommentBody(MARKER, outcome, makeInputs())).toMatchInlineSnapshot(`
       "<!-- docverse:pr-comment:example.test:rubin/docs -->
-      ### Docverse documentation preview
+      ### Documentation preview
 
       | Edition | URL |
       | ------- | --- |
@@ -128,7 +128,7 @@ describe('renderCommentBody', () => {
     });
     expect(renderCommentBody(MARKER, outcome, makeInputs())).toMatchInlineSnapshot(`
       "<!-- docverse:pr-comment:example.test:rubin/docs -->
-      ### Docverse documentation preview
+      ### Documentation preview
 
       | Edition | URL |
       | ------- | --- |
@@ -146,7 +146,7 @@ describe('renderCommentBody', () => {
     });
     expect(renderCommentBody(MARKER, outcome, makeInputs())).toMatchInlineSnapshot(`
       "<!-- docverse:pr-comment:example.test:rubin/docs -->
-      ### Docverse documentation preview
+      ### Documentation preview
 
       | Edition | URL |
       | ------- | --- |
@@ -162,7 +162,7 @@ describe('renderCommentBody', () => {
     const outcome = makeOutcome({ editions: [] });
     expect(renderCommentBody(MARKER, outcome, makeInputs())).toMatchInlineSnapshot(`
       "<!-- docverse:pr-comment:example.test:rubin/docs -->
-      ### Docverse documentation preview
+      ### Documentation preview
 
       No editions were updated by build \`01HQ-3KBR-T5GN-8W\`.
 
@@ -178,7 +178,7 @@ describe('renderCommentBody', () => {
     });
     expect(renderCommentBody(MARKER, outcome, makeInputs())).toMatchInlineSnapshot(`
       "<!-- docverse:pr-comment:example.test:rubin/docs -->
-      ### Docverse documentation preview
+      ### Documentation preview
 
       Build \`01HQ-3KBR-T5GN-8W\` for \`rubin/docs\` did not complete — status \`failed\`."
     `);
@@ -198,7 +198,7 @@ describe('renderCommentBody', () => {
     });
     expect(renderCommentBody(MARKER, outcome, makeInputs())).toMatchInlineSnapshot(`
       "<!-- docverse:pr-comment:example.test:rubin/docs -->
-      ### Docverse documentation preview
+      ### Documentation preview
 
       | Edition | URL |
       | ------- | --- |

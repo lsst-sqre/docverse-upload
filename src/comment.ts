@@ -14,7 +14,7 @@ export function commentMarker(baseUrl: string, org: string, project: string): st
   return `<!-- docverse:pr-comment:${host}:${org}/${project} -->`;
 }
 
-const HEADING = '### Docverse documentation preview';
+const HEADING = '### Documentation preview';
 const EM_DASH = '—';
 
 /**

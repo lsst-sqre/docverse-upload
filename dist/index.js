@@ -32806,7 +32806,7 @@ function commentMarker(baseUrl, org, project) {
     const host = new URL(baseUrl).host;
     return `<!-- docverse:pr-comment:${host}:${org}/${project} -->`;
 }
-const HEADING = '### Docverse documentation preview';
+const HEADING = '### Documentation preview';
 const EM_DASH = '—';
 /**
  * Render the Markdown body of the PR comment from the upload outcome. Pure: no
