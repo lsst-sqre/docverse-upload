@@ -1,5 +1,5 @@
 import type { ActionInputs } from './inputs.js';
-import { type UploadOutcome, extractFailedSlugs, extractSkippedSlugs } from './outputs.js';
+import { extractFailedSlugs, extractSkippedSlugs, type UploadOutcome } from './outputs.js';
 
 /**
  * Hidden HTML marker used to find-and-update the action's own comment on a PR.
