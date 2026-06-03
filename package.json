@@ -22,7 +22,7 @@
   "dependencies": {
     "@actions/core": "^1.11.1",
     "@actions/github": "^6.0.0",
-    "openapi-fetch": "^0.13.5",
+    "openapi-fetch": "^0.17.0",
     "tar": "^7.4.3"
   },
   "devDependencies": {
