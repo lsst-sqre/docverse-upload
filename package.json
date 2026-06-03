@@ -20,7 +20,7 @@
     "generate-types": "openapi-typescript openapi.json --output generated/api-types.ts"
   },
   "dependencies": {
-    "@actions/core": "^1.11.1",
+    "@actions/core": "^3.0.1",
     "@actions/github": "^6.0.0",
     "openapi-fetch": "^0.17.0",
     "tar": "^7.4.3"

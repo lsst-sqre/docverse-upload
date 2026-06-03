@@ -10,6 +10,14 @@ import {
   resolveTargetPrs,
 } from '../src/github.js';
 
+// `@actions/core` v3 ships read-only ESM exports, so `vi.spyOn(core, ...)`
+// can no longer redefine them. Mock the module instead, preserving the real
+// implementations and replacing `warning` with a spy we can assert on.
+vi.mock('@actions/core', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@actions/core')>();
+  return { ...actual, warning: vi.fn() };
+});
+
 const API = 'https://api.github.test';
 const MARKER = '<!-- docverse:pr-comment:example.test:rubin/docs -->';
 
@@ -157,7 +165,8 @@ describe('postOrUpdateComment', () => {
   });
 
   it('warns and does not throw on a 403 (missing pull-requests: write)', async () => {
-    const warning = vi.spyOn(core, 'warning').mockImplementation(() => {});
+    const warning = vi.mocked(core.warning);
+    warning.mockClear();
     server.use(
       http.get(`${API}/repos/:owner/:repo/issues/:issue_number/comments`, () =>
         HttpResponse.json([]),
