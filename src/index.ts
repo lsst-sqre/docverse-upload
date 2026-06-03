@@ -1,19 +1,19 @@
 import * as core from '@actions/core';
 import { context, getOctokit } from '@actions/github';
 import { detectGithubActionsAnnotations } from './annotations.js';
-import { ApiError, DocverseClient, NetworkError, uploadTarball } from './client.js';
 import type { Build, QueueJob } from './client.js';
+import { ApiError, DocverseClient, NetworkError, uploadTarball } from './client.js';
 import { commentMarker, renderCommentBody } from './comment.js';
 import { postOrUpdateComment, resolveTargetPrs } from './github.js';
 import { type ActionInputs, InputError, parseInputs } from './inputs.js';
 import {
   type EditionEntry,
-  type PublishStatus,
-  type UploadOutcome,
   emitOutputs,
   extractPublishJobs,
   extractUpdatedSlugs,
+  type PublishStatus,
   toEditionEntry,
+  type UploadOutcome,
   writeStepSummary,
 } from './outputs.js';
 import { PollTimeoutError, pollPublishJobs, pollQueueJob } from './poll.js';
