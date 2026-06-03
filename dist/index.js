@@ -31799,30 +31799,14 @@ const external_node_fs_namespaceObject = __WEBPACK_EXTERNAL_createRequire(import
 const promises_namespaceObject = __WEBPACK_EXTERNAL_createRequire(import.meta.url)("node:fs/promises");
 // EXTERNAL MODULE: external "node:stream"
 var external_node_stream_ = __nccwpck_require__(7075);
-;// CONCATENATED MODULE: ./node_modules/.pnpm/openapi-fetch@0.13.8/node_modules/openapi-fetch/dist/index.js
-// settings & const
+;// CONCATENATED MODULE: ./node_modules/.pnpm/openapi-fetch@0.17.0/node_modules/openapi-fetch/dist/index.mjs
 const PATH_PARAM_RE = /\{[^{}]+\}/g;
-
 const supportsRequestInitExt = () => {
-  return (
-    typeof process === "object" &&
-    Number.parseInt(process?.versions?.node?.substring(0, 2)) >= 18 &&
-    process.versions.undici
-  );
+  return typeof process === "object" && Number.parseInt(process?.versions?.node?.substring(0, 2)) >= 18 && process.versions.undici;
 };
-
-/**
- * Returns a cheap, non-cryptographically-secure random ID
- * Courtesy of @imranbarbhuiya (https://github.com/imranbarbhuiya)
- */
 function randomID() {
   return Math.random().toString(36).slice(2, 11);
 }
-
-/**
- * Create an openapi-fetch client.
- * @type {import("./index.js").default}
- */
 function createClient(clientOptions) {
   let {
     baseUrl = "",
@@ -31830,19 +31814,14 @@ function createClient(clientOptions) {
     fetch: baseFetch = globalThis.fetch,
     querySerializer: globalQuerySerializer,
     bodySerializer: globalBodySerializer,
+    pathSerializer: globalPathSerializer,
     headers: baseHeaders,
-    requestInitExt = undefined,
+    requestInitExt = void 0,
     ...baseOptions
   } = { ...clientOptions };
-  requestInitExt = supportsRequestInitExt() ? requestInitExt : undefined;
+  requestInitExt = supportsRequestInitExt() ? requestInitExt : void 0;
   baseUrl = removeTrailingSlash(baseUrl);
-  const middlewares = [];
-
-  /**
-   * Per-request fetch (keeps settings created in createClient()
-   * @param {T} url
-   * @param {import('./index.js').FetchOptions<T>} fetchOptions
-   */
+  const globalMiddlewares = [];
   async function coreFetch(schemaPath, fetchOptions) {
     const {
       baseUrl: localBaseUrl,
@@ -31853,99 +31832,83 @@ function createClient(clientOptions) {
       parseAs = "json",
       querySerializer: requestQuerySerializer,
       bodySerializer = globalBodySerializer ?? defaultBodySerializer,
+      pathSerializer: requestPathSerializer,
       body,
+      middleware: requestMiddlewares = [],
       ...init
     } = fetchOptions || {};
     let finalBaseUrl = baseUrl;
     if (localBaseUrl) {
       finalBaseUrl = removeTrailingSlash(localBaseUrl) ?? baseUrl;
     }
-
-    let querySerializer =
-      typeof globalQuerySerializer === "function"
-        ? globalQuerySerializer
-        : createQuerySerializer(globalQuerySerializer);
+    let querySerializer = typeof globalQuerySerializer === "function" ? globalQuerySerializer : createQuerySerializer(globalQuerySerializer);
     if (requestQuerySerializer) {
-      querySerializer =
-        typeof requestQuerySerializer === "function"
-          ? requestQuerySerializer
-          : createQuerySerializer({
-              ...(typeof globalQuerySerializer === "object" ? globalQuerySerializer : {}),
-              ...requestQuerySerializer,
-            });
+      querySerializer = typeof requestQuerySerializer === "function" ? requestQuerySerializer : createQuerySerializer({
+        ...typeof globalQuerySerializer === "object" ? globalQuerySerializer : {},
+        ...requestQuerySerializer
+      });
     }
-
-    const serializedBody =
-      body === undefined
-        ? undefined
-        : bodySerializer(
-            body,
-            // Note: we declare mergeHeaders() both here and below because it’s a bit of a chicken-or-egg situation:
-            // bodySerializer() needs all headers so we aren’t dropping ones set by the user, however,
-            // the result of this ALSO sets the lowest-priority content-type header. So we re-merge below,
-            // setting the content-type at the very beginning to be overwritten.
-            // Lastly, based on the way headers work, it’s not a simple “present-or-not” check becauase null intentionally un-sets headers.
-            mergeHeaders(baseHeaders, headers, params.header),
-          );
+    const pathSerializer = requestPathSerializer || globalPathSerializer || defaultPathSerializer;
+    const serializedBody = body === void 0 ? void 0 : bodySerializer(
+      body,
+      // Note: we declare mergeHeaders() both here and below because it’s a bit of a chicken-or-egg situation:
+      // bodySerializer() needs all headers so we aren’t dropping ones set by the user, however,
+      // the result of this ALSO sets the lowest-priority content-type header. So we re-merge below,
+      // setting the content-type at the very beginning to be overwritten.
+      // Lastly, based on the way headers work, it’s not a simple “present-or-not” check becauase null intentionally un-sets headers.
+      mergeHeaders(baseHeaders, headers, params.header)
+    );
     const finalHeaders = mergeHeaders(
       // with no body, we should not to set Content-Type
-      serializedBody === undefined ||
-        // if serialized body is FormData; browser will correctly set Content-Type & boundary expression
-        serializedBody instanceof FormData
-        ? {}
-        : {
-            "Content-Type": "application/json",
-          },
+      serializedBody === void 0 || // if serialized body is FormData; browser will correctly set Content-Type & boundary expression
+      serializedBody instanceof FormData ? {} : {
+        "Content-Type": "application/json"
+      },
       baseHeaders,
       headers,
-      params.header,
+      params.header
     );
-
+    const finalMiddlewares = [...globalMiddlewares, ...requestMiddlewares];
     const requestInit = {
       redirect: "follow",
       ...baseOptions,
       ...init,
       body: serializedBody,
-      headers: finalHeaders,
+      headers: finalHeaders
     };
-
     let id;
     let options;
-    let request = new CustomRequest(
-      createFinalURL(schemaPath, { baseUrl: finalBaseUrl, params, querySerializer }),
-      requestInit,
+    let request = new Request(
+      createFinalURL(schemaPath, { baseUrl: finalBaseUrl, params, querySerializer, pathSerializer }),
+      requestInit
     );
     let response;
-
-    /** Add custom parameters to Request object */
     for (const key in init) {
       if (!(key in request)) {
         request[key] = init[key];
       }
     }
-
-    if (middlewares.length) {
+    if (finalMiddlewares.length) {
       id = randomID();
-
-      // middleware (request)
       options = Object.freeze({
         baseUrl: finalBaseUrl,
         fetch,
         parseAs,
         querySerializer,
         bodySerializer,
+        pathSerializer
       });
-      for (const m of middlewares) {
+      for (const m of finalMiddlewares) {
         if (m && typeof m === "object" && typeof m.onRequest === "function") {
           const result = await m.onRequest({
             request,
             schemaPath,
             params,
             options,
-            id,
+            id
           });
           if (result) {
-            if (result instanceof CustomRequest) {
+            if (result instanceof Request) {
               request = result;
             } else if (result instanceof Response) {
               response = result;
@@ -31957,18 +31920,14 @@ function createClient(clientOptions) {
         }
       }
     }
-
     if (!response) {
-      // fetch!
       try {
         response = await fetch(request, requestInitExt);
-      } catch (error) {
-        let errorAfterMiddleware = error;
-        // middleware (error)
-        // execute in reverse-array order (first priority gets last transform)
-        if (middlewares.length) {
-          for (let i = middlewares.length - 1; i >= 0; i--) {
-            const m = middlewares[i];
+      } catch (error2) {
+        let errorAfterMiddleware = error2;
+        if (finalMiddlewares.length) {
+          for (let i = finalMiddlewares.length - 1; i >= 0; i--) {
+            const m = finalMiddlewares[i];
             if (m && typeof m === "object" && typeof m.onError === "function") {
               const result = await m.onError({
                 request,
@@ -31976,38 +31935,30 @@ function createClient(clientOptions) {
                 schemaPath,
                 params,
                 options,
-                id,
+                id
               });
               if (result) {
-                // if error is handled by returning a response, skip remaining middleware
                 if (result instanceof Response) {
-                  errorAfterMiddleware = undefined;
+                  errorAfterMiddleware = void 0;
                   response = result;
                   break;
                 }
-
                 if (result instanceof Error) {
                   errorAfterMiddleware = result;
                   continue;
                 }
-
                 throw new Error("onError: must return new Response() or instance of Error");
               }
             }
           }
         }
-
-        // rethrow error if not handled by middleware
         if (errorAfterMiddleware) {
           throw errorAfterMiddleware;
         }
       }
-
-      // middleware (response)
-      // execute in reverse-array order (first priority gets last transform)
-      if (middlewares.length) {
-        for (let i = middlewares.length - 1; i >= 0; i--) {
-          const m = middlewares[i];
+      if (finalMiddlewares.length) {
+        for (let i = finalMiddlewares.length - 1; i >= 0; i--) {
+          const m = finalMiddlewares[i];
           if (m && typeof m === "object" && typeof m.onResponse === "function") {
             const result = await m.onResponse({
               request,
@@ -32015,7 +31966,7 @@ function createClient(clientOptions) {
               schemaPath,
               params,
               options,
-              id,
+              id
             });
             if (result) {
               if (!(result instanceof Response)) {
@@ -32027,31 +31978,30 @@ function createClient(clientOptions) {
         }
       }
     }
-
-    // handle empty content
-    if (response.status === 204 || request.method === "HEAD" || response.headers.get("Content-Length") === "0") {
-      return response.ok ? { data: undefined, response } : { error: undefined, response };
+    const contentLength = response.headers.get("Content-Length");
+    if (response.status === 204 || request.method === "HEAD" || contentLength === "0" && !response.headers.get("Transfer-Encoding")?.includes("chunked")) {
+      return response.ok ? { data: void 0, response } : { error: void 0, response };
     }
-
-    // parse response (falling back to .text() when necessary)
     if (response.ok) {
-      // if "stream", skip parsing entirely
-      if (parseAs === "stream") {
-        return { data: response.body, response };
-      }
-      return { data: await response[parseAs](), response };
+      const getResponseData = async () => {
+        if (parseAs === "stream") {
+          return response.body;
+        }
+        if (parseAs === "json" && !contentLength) {
+          const raw = await response.text();
+          return raw ? JSON.parse(raw) : void 0;
+        }
+        return await response[parseAs]();
+      };
+      return { data: await getResponseData(), response };
     }
-
-    // handle errors
     let error = await response.text();
     try {
-      error = JSON.parse(error); // attempt to parse as JSON
+      error = JSON.parse(error);
     } catch {
-      // noop
     }
     return { error, response };
   }
-
   return {
     request(method, url, init) {
       return coreFetch(url, { ...init, method: method.toUpperCase() });
@@ -32097,27 +32047,25 @@ function createClient(clientOptions) {
         if (typeof m !== "object" || !("onRequest" in m || "onResponse" in m || "onError" in m)) {
           throw new Error("Middleware must be an object with one of `onRequest()`, `onResponse() or `onError()`");
         }
-        middlewares.push(m);
+        globalMiddlewares.push(m);
       }
     },
     /** Unregister middleware */
     eject(...middleware) {
       for (const m of middleware) {
-        const i = middlewares.indexOf(m);
+        const i = globalMiddlewares.indexOf(m);
         if (i !== -1) {
-          middlewares.splice(i, 1);
+          globalMiddlewares.splice(i, 1);
         }
       }
-    },
+    }
   };
 }
-
 class PathCallForwarder {
   constructor(client, url) {
     this.client = client;
     this.url = url;
   }
-
   GET = (init) => {
     return this.client.GET(this.url, init);
   };
@@ -32143,12 +32091,10 @@ class PathCallForwarder {
     return this.client.TRACE(this.url, init);
   };
 }
-
 class PathClientProxyHandler {
   constructor() {
     this.client = null;
   }
-
   // Assume the property is an URL.
   get(coreClient, url) {
     const forwarder = new PathCallForwarder(coreClient, url);
@@ -32156,98 +32102,60 @@ class PathClientProxyHandler {
     return forwarder;
   }
 }
-
-/**
- * Wrap openapi-fetch client to support a path based API.
- * @type {import("./index.js").wrapAsPathBasedClient}
- */
 function wrapAsPathBasedClient(coreClient) {
   const handler = new PathClientProxyHandler();
   const proxy = new Proxy(coreClient, handler);
-
-  // Put the proxy on the prototype chain of the actual client.
-  // This means if we do not have a memoized PathCallForwarder,
-  // we fall back to the proxy to synthesize it.
-  // However, the proxy itself is not on the hot-path (if we fetch the same
-  // endpoint multiple times, only the first call will hit the proxy).
-  function Client() {}
+  function Client() {
+  }
   Client.prototype = proxy;
-
   const client = new Client();
-
-  // Feed the client back to the proxy handler so it can store the generated
-  // PathCallForwarder.
   handler.client = client;
-
   return client;
 }
-
-/**
- * Convenience method to an openapi-fetch path based client.
- * Strictly equivalent to `wrapAsPathBasedClient(createClient(...))`.
- * @type {import("./index.js").createPathBasedClient}
- */
 function createPathBasedClient(clientOptions) {
   return wrapAsPathBasedClient(createClient(clientOptions));
 }
-
-// utils
-
-/**
- * Serialize primitive param values
- * @type {import("./index.js").serializePrimitiveParam}
- */
 function serializePrimitiveParam(name, value, options) {
-  if (value === undefined || value === null) {
+  if (value === void 0 || value === null) {
     return "";
   }
   if (typeof value === "object") {
     throw new Error(
-      "Deeply-nested arrays/objects aren’t supported. Provide your own `querySerializer()` to handle these.",
+      "Deeply-nested arrays/objects aren\u2019t supported. Provide your own `querySerializer()` to handle these."
     );
   }
   return `${name}=${options?.allowReserved === true ? value : encodeURIComponent(value)}`;
 }
-
-/**
- * Serialize object param (shallow only)
- * @type {import("./index.js").serializeObjectParam}
- */
 function serializeObjectParam(name, value, options) {
   if (!value || typeof value !== "object") {
     return "";
   }
   const values = [];
-  const joiner =
-    {
-      simple: ",",
-      label: ".",
-      matrix: ";",
-    }[options.style] || "&";
-
-  // explode: false
+  const joiner = {
+    simple: ",",
+    label: ".",
+    matrix: ";"
+  }[options.style] || "&";
   if (options.style !== "deepObject" && options.explode === false) {
     for (const k in value) {
       values.push(k, options.allowReserved === true ? value[k] : encodeURIComponent(value[k]));
     }
-    const final = values.join(","); // note: values are always joined by comma in explode: false (but joiner can prefix)
+    const final2 = values.join(",");
     switch (options.style) {
       case "form": {
-        return `${name}=${final}`;
+        return `${name}=${final2}`;
       }
       case "label": {
-        return `.${final}`;
+        return `.${final2}`;
       }
       case "matrix": {
-        return `;${name}=${final}`;
+        return `;${name}=${final2}`;
       }
       default: {
-        return final;
+        return final2;
       }
     }
   }
-
-  // explode: true
   for (const k in value) {
     const finalName = options.style === "deepObject" ? `${name}[${k}]` : k;
     values.push(serializePrimitiveParam(finalName, value[k], options));
@@ -32255,20 +32163,13 @@ function serializeObjectParam(name, value, options) {
   const final = values.join(joiner);
   return options.style === "label" || options.style === "matrix" ? `${joiner}${final}` : final;
 }
-
-/**
- * Serialize array param (shallow only)
- * @type {import("./index.js").serializeArrayParam}
- */
 function serializeArrayParam(name, value, options) {
   if (!Array.isArray(value)) {
     return "";
   }
-
-  // explode: false
   if (options.explode === false) {
-    const joiner = { form: ",", spaceDelimited: "%20", pipeDelimited: "|" }[options.style] || ","; // note: for arrays, joiners vary wildly based on style + explode behavior
-    const final = (options.allowReserved === true ? value : value.map((v) => encodeURIComponent(v))).join(joiner);
+    const joiner2 = { form: ",", spaceDelimited: "%20", pipeDelimited: "|" }[options.style] || ",";
+    const final = (options.allowReserved === true ? value : value.map((v) => encodeURIComponent(v))).join(joiner2);
     switch (options.style) {
       case "simple": {
         return final;
@@ -32286,8 +32187,6 @@ function serializeArrayParam(name, value, options) {
       }
     }
   }
-
-  // explode: true
   const joiner = { simple: ",", label: ".", matrix: ";" }[options.style] || "&";
   const values = [];
   for (const v of value) {
@@ -32297,22 +32196,15 @@ function serializeArrayParam(name, value, options) {
       values.push(serializePrimitiveParam(name, v, options));
     }
   }
-  return options.style === "label" || options.style === "matrix"
-    ? `${joiner}${values.join(joiner)}`
-    : values.join(joiner);
+  return options.style === "label" || options.style === "matrix" ? `${joiner}${values.join(joiner)}` : values.join(joiner);
 }
-
-/**
- * Serialize query params to string
- * @type {import("./index.js").createQuerySerializer}
- */
 function createQuerySerializer(options) {
   return function querySerializer(queryParams) {
     const search = [];
     if (queryParams && typeof queryParams === "object") {
       for (const name in queryParams) {
         const value = queryParams[name];
-        if (value === undefined || value === null) {
+        if (value === void 0 || value === null) {
           continue;
         }
         if (Array.isArray(value)) {
@@ -32324,8 +32216,8 @@ function createQuerySerializer(options) {
               style: "form",
               explode: true,
               ...options?.array,
-              allowReserved: options?.allowReserved || false,
-            }),
+              allowReserved: options?.allowReserved || false
+            })
           );
           continue;
         }
@@ -32335,8 +32227,8 @@ function createQuerySerializer(options) {
               style: "deepObject",
               explode: true,
               ...options?.object,
-              allowReserved: options?.allowReserved || false,
-            }),
+              allowReserved: options?.allowReserved || false
+            })
           );
           continue;
         }
@@ -32346,12 +32238,6 @@ function createQuerySerializer(options) {
     return search.join("&");
   };
 }
-
-/**
- * Handle different OpenAPI 3.x serialization styles
- * @type {import("./index.js").defaultPathSerializer}
- * @see https://swagger.io/docs/specification/serialization/#path
- */
 function defaultPathSerializer(pathname, pathParams) {
   let nextURL = pathname;
   for (const match of pathname.match(PATH_PARAM_RE) ?? []) {
@@ -32369,7 +32255,7 @@ function defaultPathSerializer(pathname, pathParams) {
       style = "matrix";
       name = name.substring(1);
     }
-    if (!pathParams || pathParams[name] === undefined || pathParams[name] === null) {
+    if (!pathParams || pathParams[name] === void 0 || pathParams[name] === null) {
       continue;
     }
     const value = pathParams[name];
@@ -32389,35 +32275,22 @@ function defaultPathSerializer(pathname, pathParams) {
   }
   return nextURL;
 }
-
-/**
- * Serialize body object to string
- * @type {import("./index.js").defaultBodySerializer}
- */
 function defaultBodySerializer(body, headers) {
   if (body instanceof FormData) {
     return body;
   }
   if (headers) {
-    const contentType =
-      headers.get instanceof Function
-        ? (headers.get("Content-Type") ?? headers.get("content-type"))
-        : (headers["Content-Type"] ?? headers["content-type"]);
+    const contentType = headers.get instanceof Function ? headers.get("Content-Type") ?? headers.get("content-type") : headers["Content-Type"] ?? headers["content-type"];
     if (contentType === "application/x-www-form-urlencoded") {
       return new URLSearchParams(body).toString();
     }
   }
   return JSON.stringify(body);
 }
-
-/**
- * Construct URL string from baseUrl and handle path and query params
- * @type {import("./index.js").createFinalURL}
- */
 function createFinalURL(pathname, options) {
   let finalURL = `${options.baseUrl}${pathname}`;
   if (options.params?.path) {
-    finalURL = defaultPathSerializer(finalURL, options.params.path);
+    finalURL = options.pathSerializer(finalURL, options.params.path);
   }
   let search = options.querySerializer(options.params.query ?? {});
   if (search.startsWith("?")) {
@@ -32428,11 +32301,6 @@ function createFinalURL(pathname, options) {
   }
   return finalURL;
 }
-
-/**
- * Merge headers a and b, with b taking priority
- * @type {import("./index.js").mergeHeaders}
- */
 function mergeHeaders(...allHeaders) {
   const finalHeaders = new Headers();
   for (const h of allHeaders) {
@@ -32447,24 +32315,22 @@ function mergeHeaders(...allHeaders) {
         for (const v2 of v) {
           finalHeaders.append(k, v2);
         }
-      } else if (v !== undefined) {
+      } else if (v !== void 0) {
         finalHeaders.set(k, v);
       }
     }
   }
   return finalHeaders;
 }
-
-/**
- * Remove trailing slash from url
- * @type {import("./index.js").removeTrailingSlash}
- */
 function removeTrailingSlash(url) {
   if (url.endsWith("/")) {
     return url.substring(0, url.length - 1);
   }
   return url;
 }
+
+
+//# sourceMappingURL=index.mjs.map
 
 ;// CONCATENATED MODULE: ./src/errors.ts
 /**
