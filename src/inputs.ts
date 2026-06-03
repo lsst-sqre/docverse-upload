@@ -16,6 +16,8 @@ export interface ActionInputs {
   wait: boolean;
   waitForPublish: boolean;
   waitTimeoutMs: number;
+  githubToken: string | null;
+  commentOnPr: boolean;
 }
 
 export class InputError extends Error {}
@@ -87,6 +89,9 @@ export function parseInputs(env: NodeJS.ProcessEnv = process.env): ActionInputs 
   const waitTimeoutMinutes = parsePositiveNumber('wait-timeout', DEFAULT_WAIT_TIMEOUT_MINUTES);
   const waitTimeoutMs = Math.round(waitTimeoutMinutes * 60_000);
 
+  const githubToken = optionalString('github-token');
+  const commentOnPr = parseBoolean('comment-on-pr', true);
+
   validateDir(dir);
 
   return {
@@ -100,6 +105,8 @@ export function parseInputs(env: NodeJS.ProcessEnv = process.env): ActionInputs 
     wait,
     waitForPublish,
     waitTimeoutMs,
+    githubToken,
+    commentOnPr,
   };
 }
 

@@ -31,14 +31,14 @@ export interface UploadOutcome {
 }
 
 /**
- * Pull the slugs of editions updated by this build out of the queue job's
- * progress payload (`progress.editions_updated[].slug`). `progress` is typed
- * `object | null` in OpenAPI, so we normalize defensively.
+ * Pull the `slug` values out of an array-of-objects entry on the queue job's
+ * progress payload (e.g. `progress.editions_updated[].slug`). `progress` is
+ * typed `object | null` in OpenAPI, so we normalize defensively.
  */
-export function extractUpdatedSlugs(job: QueueJob | null): string[] {
+function extractProgressSlugs(job: QueueJob | null, key: string): string[] {
   if (!job?.progress) return [];
   const progress = job.progress as Record<string, unknown>;
-  const raw = progress.editions_updated;
+  const raw = progress[key];
   if (!Array.isArray(raw)) return [];
   return raw
     .filter(
@@ -46,6 +46,26 @@ export function extractUpdatedSlugs(job: QueueJob | null): string[] {
     )
     .map((entry) => entry.slug)
     .filter((slug): slug is string => typeof slug === 'string');
+}
+
+/** Slugs of editions updated by this build (`progress.editions_updated`). */
+export function extractUpdatedSlugs(job: QueueJob | null): string[] {
+  return extractProgressSlugs(job, 'editions_updated');
+}
+
+/**
+ * Slugs of editions that failed during this build (`progress.editions_failed`).
+ * The build-processing job does not always emit this key; the defensive parse
+ * returns `[]` when it is absent, so the comment's failure `<details>` block is
+ * forward-compatible if the server starts reporting per-edition failures.
+ */
+export function extractFailedSlugs(job: QueueJob | null): string[] {
+  return extractProgressSlugs(job, 'editions_failed');
+}
+
+/** Slugs of editions skipped by this build (`progress.editions_skipped`). */
+export function extractSkippedSlugs(job: QueueJob | null): string[] {
+  return extractProgressSlugs(job, 'editions_skipped');
 }
 
 /**

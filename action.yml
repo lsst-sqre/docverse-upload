@@ -46,6 +46,22 @@ inputs:
     description: 'Maximum minutes to wait for the queue job to reach a terminal state.'
     required: false
     default: '30'
+  github-token:
+    description: |-
+      GitHub token used to post (and update in place) a comment on the
+      associated pull request linking to the updated editions. Typically
+      set to `github.token`. Requires `pull-requests: write` permission.
+      When omitted, PR commenting is disabled.
+    required: false
+    default: ''
+  comment-on-pr:
+    description: |-
+      Post a PR comment with edition preview URLs (`true` or `false`). When
+      `false`, commenting is disabled even if `github-token` is set — useful
+      for dev-server workflows that should keep uploading but stay silent on
+      pull requests.
+    required: false
+    default: 'true'
 outputs:
   build-id:
     description: 'Crockford Base32 build ID.'

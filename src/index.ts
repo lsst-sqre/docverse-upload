@@ -1,11 +1,15 @@
 import * as core from '@actions/core';
+import { context, getOctokit } from '@actions/github';
 import { detectGithubActionsAnnotations } from './annotations.js';
 import { ApiError, DocverseClient, NetworkError, uploadTarball } from './client.js';
 import type { Build, QueueJob } from './client.js';
+import { commentMarker, renderCommentBody } from './comment.js';
+import { postOrUpdateComment, resolveTargetPrs } from './github.js';
 import { type ActionInputs, InputError, parseInputs } from './inputs.js';
 import {
   type EditionEntry,
   type PublishStatus,
+  type UploadOutcome,
   emitOutputs,
   extractPublishJobs,
   extractUpdatedSlugs,
@@ -91,9 +95,13 @@ async function reportOutcome(
     inputs.project,
     extractUpdatedSlugs(job),
   );
-  const outcome = { build, job, editions, publishStatus };
+  const outcome: UploadOutcome = { build, job, editions, publishStatus };
   emitOutputs(outcome);
   await writeStepSummary(outcome);
+
+  // Post the PR comment before the wait/status guard below so failure and
+  // partial-failure builds still get a comment (SQR-112 reports those too).
+  await maybePostPrComment(inputs, outcome);
 
   if (!inputs.wait || !job) {
     return;
@@ -117,6 +125,44 @@ async function reportOutcome(
       return;
     default:
       core.setFailed(`Unexpected terminal job status: ${job.status}`);
+  }
+}
+
+/**
+ * Post (or update in place) a comment on the associated pull request(s)
+ * linking to the editions this build updated. Gated on a `github-token`,
+ * `comment-on-pr`, `wait` being on (so there is a job outcome to report), and a
+ * resolvable PR. Every failure degrades to a `core.warning` so a GitHub hiccup
+ * never fails the step — the upload has already succeeded by this point.
+ */
+async function maybePostPrComment(inputs: ActionInputs, outcome: UploadOutcome): Promise<void> {
+  if (inputs.githubToken === null || !inputs.commentOnPr) {
+    core.info(
+      'PR commenting disabled (no `github-token` or `comment-on-pr: false`); skipping comment.',
+    );
+    return;
+  }
+  if (!inputs.wait) {
+    core.info('PR commenting skipped because `wait: false` (no job outcome to report).');
+    return;
+  }
+
+  try {
+    const octokit = getOctokit(inputs.githubToken);
+    const { owner, repo, prNumbers } = await resolveTargetPrs(octokit, context);
+    if (prNumbers.length === 0) {
+      core.info(`No pull request to comment on for event \`${context.eventName}\`; skipping.`);
+      return;
+    }
+
+    const marker = commentMarker(inputs.baseUrl, inputs.org, inputs.project);
+    const body = renderCommentBody(marker, outcome, inputs);
+    for (const prNumber of prNumbers) {
+      await postOrUpdateComment(octokit, owner, repo, prNumber, marker, body);
+    }
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    core.warning(`Failed to post PR comment: ${message}`);
   }
 }
 
