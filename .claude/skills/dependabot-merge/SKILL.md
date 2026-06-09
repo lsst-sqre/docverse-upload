@@ -31,6 +31,13 @@ skill is for the leftovers:**
 - PRs where the new dependency version needs **code changes** — CI stays red
   even after the bot's `dist/` rebuild, so auto-merge never fires.
 
+The `dependabot-build` and `dependabot-label` jobs are gated on
+`github.actor == 'dependabot[bot]'`, so when **you** push to a Dependabot branch
+(or the build workflow pushes its own rebuild via the App token) those two checks
+**skip** — they show as neutral/skipped, *not* failed. Don't try to "fix" them.
+The only check that gates your merge is `build` (the `CI` workflow). The
+`auto-merge` workflow runs on `workflow_run` and isn't a PR status check.
+
 ## Repo context you must know
 
 This repo is a GitHub Action bundled with `@vercel/ncc` into `dist/`. CI
@@ -59,7 +66,7 @@ touch `dist/` at all.
 4. Run the local CI gate: `bash .claude/skills/dependabot-merge/scripts/ci-local.sh`. It runs the exact CI sequence and stops at the first failing step.
 5. Fix the failing step (see **Known fix patterns**). Rebuilding `dist/` is `pnpm generate-types && pnpm build`.
 6. Re-run the gate until clean, then `git add -A`, commit, and push to the Dependabot branch (`git push` or `--force-with-lease` after a rebase).
-7. Confirm CI: `gh run watch <runId> --exit-status`. When `gh pr view <n>` shows `MERGEABLE`/`CLEAN`, merge: `gh pr merge <n> --merge --delete-branch`.
+7. Confirm CI: `gh run watch <runId> --exit-status`. Gate on the `build` check only — `label`/`rebuild-dist` skip on your pushes (see above). When `gh pr view <n>` shows `MERGEABLE` (`CLEAN`, or `UNSTABLE` solely from skipped Dependabot-only checks), merge: `gh pr merge <n> --squash --delete-branch` (squash matches the auto-merge workflow).
 
 ## Known fix patterns
 

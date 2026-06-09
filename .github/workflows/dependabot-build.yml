@@ -41,7 +41,12 @@ on:
 jobs:
   rebuild-dist:
     runs-on: ubuntu-latest
-    if: github.event.pull_request.user.login == 'dependabot[bot]'
+    # Author check (Confused-Deputy guard) AND triggering-actor check: only run on
+    # a genuine Dependabot-triggered push. On a maintainer's push (e.g. the
+    # dependabot-merge skill) or this workflow's own App-token rebuild push, the
+    # actor isn't dependabot[bot], so the job skips cleanly instead of failing on
+    # the Dependabot-only CI_GH_APP_PRIVATE_KEY secret being unavailable.
+    if: github.event.pull_request.user.login == 'dependabot[bot]' && github.actor == 'dependabot[bot]'
     steps:
       - name: Generate GitHub App token
         id: token
