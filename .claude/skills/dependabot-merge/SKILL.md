@@ -40,7 +40,7 @@ The only check that gates your merge is `build` (the `CI` workflow). The
 
 ## Repo context you must know
 
-This repo is a GitHub Action bundled with `@vercel/ncc` into `dist/`. CI
+This repo is a GitHub Action bundled with **esbuild** (`scripts/build.mjs`) into `dist/`. CI
 (`.github/workflows/ci.yml`) ends with a **"Verify generated/ and dist/ are up
 to date"** step (`git diff --exit-code generated/ dist/`).
 
@@ -76,8 +76,6 @@ touch `dist/` at all.
 | Biome: `schema version does not match` / unknown key `ignore`/`organizeImports` | Biome major bump | `pnpm biome migrate --write`, then `pnpm biome check --write .` to apply the new import ordering across src/tests |
 | Test: `Cannot redefine property: warning` (`vi.spyOn(core, …)`) | `@actions/core` v3 ships read-only ESM exports | replace the spy with a module mock — see [REFERENCE.md](REFERENCE.md) |
 | Test startup: `ERR_PACKAGE_PATH_NOT_EXPORTED: ./module-runner` | Vitest 4 needs Vite ≥6 but pnpm's auto-peer is stuck at Vite 5 | add an explicit `vite` devDependency (`pnpm add -D "vite@^7"`); a `pnpm.overrides` entry alone does **not** force the peer to re-resolve |
-| Build: `TS5011 … rootDir must be explicitly set` under TypeScript 6 | **ncc + TS 6 incompatibility** — ncc forces `outDir` and strips `rootDir`; TS 6 makes this fatal. No tsconfig fix works | **Unmergeable.** If it's a grouped PR, revert just the TS bump in `package.json` so the rest lands; comment explaining the hold-back |
-
 ## Merge ordering (avoid dist/ conflicts)
 
 Multiple PRs that each rebuild `dist/index.js` will conflict with each other
