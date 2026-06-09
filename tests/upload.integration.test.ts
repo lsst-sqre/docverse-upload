@@ -4,7 +4,8 @@ import { join } from 'node:path';
 import { HttpResponse, http } from 'msw';
 import { setupServer } from 'msw/node';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { ApiError, DocverseClient, uploadTarball } from '../src/client.js';
+import { ApiError, DocverseClient, NetworkError, uploadTarball } from '../src/client.js';
+import { extractPublishJobs, extractUpdatedEditions } from '../src/outputs.js';
 import { pollQueueJob } from '../src/poll.js';
 
 const BASE_URL = 'https://example.test/docverse/api';
@@ -61,15 +62,44 @@ function queueJob(overrides: Record<string, unknown> = {}) {
     date_completed: '2026-05-28T00:02:00Z',
     keeper_sync_run_id: null,
     subject_label: null,
+    subject_url: null,
+    build_url: null,
+    edition_url: null,
+    ...overrides,
+  };
+}
+
+function editionResource(slug: string, overrides: Record<string, unknown> = {}) {
+  return {
+    self_url: `${BASE_URL}/orgs/rubin/projects/docs/editions/${slug}`,
+    project_url: `${BASE_URL}/orgs/rubin/projects/docs`,
+    build_url: `${BASE_URL}/orgs/rubin/projects/docs/builds/B1`,
+    published_url: `https://docs.example/v/${slug}/`,
+    history_url: `${BASE_URL}/orgs/rubin/projects/docs/editions/${slug}/history`,
+    rollback_url: `${BASE_URL}/orgs/rubin/projects/docs/editions/${slug}/rollback`,
+    slug,
+    title: slug,
+    kind: 'draft',
+    tracking_mode: 'git_ref',
+    tracking_params: { git_ref: 'main' },
+    lifecycle_exempt: false,
+    publish_status: null,
+    date_created: '2026-05-28T00:00:00Z',
+    date_updated: '2026-05-28T00:02:00Z',
     ...overrides,
   };
 }
 
 describe('upload flow', () => {
-  it('runs create → upload → patch → poll happy path', async () => {
+  it('runs create → upload → patch → poll happy path, following HATEOAS links', async () => {
     let createdHeader = '';
     let putHeader: string | null = '';
     let patchBody: unknown = null;
+    const queueAuth: Record<string, string> = {};
+    let editionAuth = '';
+
+    const editionUrl = `${BASE_URL}/orgs/rubin/projects/docs/editions/main`;
+    const publishJobUrl = `${BASE_URL}/queue/jobs/whgn-wnz2-tvyx-05`;
 
     server.use(
       http.post(`${BASE_URL}/orgs/:org/projects/:project/builds`, async ({ request }) => {
@@ -89,20 +119,35 @@ describe('upload flow', () => {
           }),
         );
       }),
-      http.get(`${BASE_URL}/queue/jobs/:job`, () =>
-        HttpResponse.json(
+      http.get(`${BASE_URL}/queue/jobs/:job`, ({ request, params }) => {
+        const id = params.job as string;
+        queueAuth[id] = request.headers.get('authorization') ?? '';
+        return HttpResponse.json(
           queueJob({
+            id,
+            self_url: `${BASE_URL}/queue/jobs/${id}`,
             phase: 'complete',
             progress: {
               message: 'Build processing complete',
-              editions_updated: [{ slug: 'main', action: 'updated' }],
+              editions_updated: [{ slug: 'main', action: 'updated', edition_url: editionUrl }],
               editions_skipped: [],
               publish_jobs: [
-                { edition_slug: 'main', publish_queue_job_public_id: 'whgn-wnz2-tvyx-05' },
+                {
+                  edition_slug: 'main',
+                  publish_queue_job_public_id: 'whgn-wnz2-tvyx-05',
+                  queue_job_url: publishJobUrl,
+                },
               ],
             },
           }),
-        ),
+        );
+      }),
+      http.get(
+        `${BASE_URL}/orgs/:org/projects/:project/editions/:edition`,
+        ({ request, params }) => {
+          editionAuth = request.headers.get('authorization') ?? '';
+          return HttpResponse.json(editionResource(params.edition as string));
+        },
       ),
     );
 
@@ -122,7 +167,7 @@ describe('upload flow', () => {
     await uploadTarball(build.upload_url!, join(workDir, 'index.html'));
     expect(putHeader).toBeNull();
 
-    const patched = await client.completeUpload(build.self_url);
+    const patched = await client.completeUpload(build.id);
     expect(patched.queue_url).toContain('/queue/jobs/qbk8-g75d-s0h1-97');
     expect(patchBody).toEqual({ status: 'uploaded' });
 
@@ -133,6 +178,22 @@ describe('upload flow', () => {
       now: () => 0,
     });
     expect(job.status).toBe('completed');
+    // The build's queue_url was followed with the bearer token (same-origin).
+    expect(queueAuth['qbk8-g75d-s0h1-97']).toBe('Bearer gt-test');
+
+    // Follow the HATEOAS links embedded in the progress payload end-to-end.
+    const [editionRef] = extractUpdatedEditions(job);
+    const [publishRef] = extractPublishJobs(job);
+    expect(editionRef?.editionUrl).toBe(editionUrl);
+    expect(publishRef?.queueJobUrl).toBe(publishJobUrl);
+
+    const edition = await client.getEditionByUrl(editionRef!.editionUrl!);
+    expect(edition.slug).toBe('main');
+    expect(editionAuth).toBe('Bearer gt-test');
+
+    const publishJob = await client.getQueueJobByUrl(publishRef!.queueJobUrl!);
+    expect(publishJob.id).toBe('whgn-wnz2-tvyx-05');
+    expect(queueAuth['whgn-wnz2-tvyx-05']).toBe('Bearer gt-test');
   });
 
   it('fetches an edition resource to resolve its published_url', async () => {
@@ -184,6 +245,51 @@ describe('upload flow', () => {
     expect(requestedJob).toBe('whgn-wnz2-tvyx-05');
     expect(job.id).toBe('whgn-wnz2-tvyx-05');
     expect(job.status).toBe('completed');
+  });
+
+  it('follows a cross-origin link without attaching the bearer token', async () => {
+    const CROSS = 'https://other.example.test';
+    let authHeader: string | null = 'unset';
+    server.use(
+      http.get(`${CROSS}/queue/jobs/:job`, ({ request, params }) => {
+        authHeader = request.headers.get('authorization');
+        return HttpResponse.json(
+          queueJob({ id: params.job as string, self_url: `${CROSS}/queue/jobs/${params.job}` }),
+        );
+      }),
+    );
+    const client = new DocverseClient(BASE_URL, 'gt-secret', 'rubin', 'docs');
+    const job = await client.getQueueJobByUrl(`${CROSS}/queue/jobs/abcd`);
+    expect(job.id).toBe('abcd');
+    expect(authHeader).toBeNull();
+  });
+
+  it('maps a network error on a followed link to NetworkError', async () => {
+    server.use(http.get(`${BASE_URL}/queue/jobs/:job`, () => HttpResponse.error()));
+    const client = new DocverseClient(BASE_URL, 'gt', 'rubin', 'docs');
+    await expect(client.getQueueJobByUrl(`${BASE_URL}/queue/jobs/abcd`)).rejects.toBeInstanceOf(
+      NetworkError,
+    );
+  });
+
+  it('reads the error body of a 404 from a followed link (unread-body invariant)', async () => {
+    server.use(
+      http.get(`${BASE_URL}/orgs/:org/projects/:project/editions/:edition`, () =>
+        HttpResponse.json({ detail: 'edition not found' }, { status: 404 }),
+      ),
+    );
+    const client = new DocverseClient(BASE_URL, 'gt', 'rubin', 'docs');
+    const promise = client.getEditionByUrl(`${BASE_URL}/orgs/rubin/projects/docs/editions/missing`);
+    await expect(promise).rejects.toBeInstanceOf(ApiError);
+    // The early `if (!response.ok) return { response }` leaves the body unread so
+    // buildFailure can consume it — proven by the parsed `detail` surviving here.
+    await expect(promise).rejects.toMatchObject({
+      failure: {
+        status: 404,
+        body: { detail: 'edition not found' },
+        rawBody: expect.stringContaining('edition not found'),
+      },
+    });
   });
 
   it('maps a 401 from POST builds to an actionable message', async () => {

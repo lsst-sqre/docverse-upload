@@ -12,6 +12,21 @@ export interface EditionEntry {
 export interface PublishJobRef {
   editionSlug: string;
   jobId: string;
+  /**
+   * Absolute `queue_job_url` HATEOAS link to the publish job, when the server
+   * embedded it. Followed in preference to reconstructing `/queue/jobs/{id}`.
+   */
+  queueJobUrl?: string;
+}
+
+/** An edition updated by this build (`progress.editions_updated`). */
+export interface UpdatedEditionRef {
+  slug: string;
+  /**
+   * Absolute `edition_url` HATEOAS link to the edition resource, when the
+   * server embedded it. Followed in preference to reconstructing the path.
+   */
+  editionUrl?: string;
 }
 
 export type PublishStatus = 'published' | 'failed' | 'timed-out' | 'skipped';
@@ -54,6 +69,33 @@ export function extractUpdatedSlugs(job: QueueJob | null): string[] {
 }
 
 /**
+ * Editions updated by this build (`progress.editions_updated`), each with its
+ * slug and the optional `edition_url` HATEOAS link the server embedded. The
+ * link is carried only when it is a string; callers reconstruct the edition
+ * path from `org`/`project`/`slug` when it is absent. Reads the typed
+ * `EditionUpdateRef` fields but stays defensive: `progress` is `object | null`
+ * at runtime and the array may carry malformed entries.
+ */
+export function extractUpdatedEditions(job: QueueJob | null): UpdatedEditionRef[] {
+  if (!job?.progress) return [];
+  const progress = job.progress as Record<string, unknown>;
+  const raw = progress.editions_updated;
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .filter(
+      (entry): entry is Record<string, unknown> => typeof entry === 'object' && entry !== null,
+    )
+    .map((entry) => {
+      const ref: { slug: unknown; editionUrl?: string } = { slug: entry.slug };
+      if (typeof entry.edition_url === 'string') {
+        ref.editionUrl = entry.edition_url;
+      }
+      return ref;
+    })
+    .filter((ref): ref is UpdatedEditionRef => typeof ref.slug === 'string');
+}
+
+/**
  * Slugs of editions that failed during this build (`progress.editions_failed`).
  * The build-processing job does not always emit this key; the defensive parse
  * returns `[]` when it is absent, so the comment's failure `<details>` block is
@@ -70,9 +112,11 @@ export function extractSkippedSlugs(job: QueueJob | null): string[] {
 
 /**
  * Pull the `publish_edition` job references out of the build job's progress
- * payload (`progress.publish_jobs[]`), mapping `edition_slug`→`editionSlug` and
- * `publish_queue_job_public_id`→`jobId`. `progress` is typed `object | null` in
- * OpenAPI, so we normalize defensively (drop entries missing either string).
+ * payload (`progress.publish_jobs[]`), mapping `edition_slug`→`editionSlug`,
+ * `publish_queue_job_public_id`→`jobId`, and (when present as a string) the
+ * `queue_job_url`→`queueJobUrl` HATEOAS link. `progress` is typed
+ * `object | null` in OpenAPI, so we normalize defensively (drop entries missing
+ * either required string).
  */
 export function extractPublishJobs(job: QueueJob | null): PublishJobRef[] {
   if (!job?.progress) return [];
@@ -83,10 +127,16 @@ export function extractPublishJobs(job: QueueJob | null): PublishJobRef[] {
     .filter(
       (entry): entry is Record<string, unknown> => typeof entry === 'object' && entry !== null,
     )
-    .map((entry) => ({
-      editionSlug: entry.edition_slug,
-      jobId: entry.publish_queue_job_public_id,
-    }))
+    .map((entry) => {
+      const ref: { editionSlug: unknown; jobId: unknown; queueJobUrl?: string } = {
+        editionSlug: entry.edition_slug,
+        jobId: entry.publish_queue_job_public_id,
+      };
+      if (typeof entry.queue_job_url === 'string') {
+        ref.queueJobUrl = entry.queue_job_url;
+      }
+      return ref;
+    })
     .filter(
       (ref): ref is PublishJobRef =>
         typeof ref.editionSlug === 'string' && typeof ref.jobId === 'string',

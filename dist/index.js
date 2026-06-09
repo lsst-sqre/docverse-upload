@@ -60528,11 +60528,17 @@ class NetworkError extends Error {
 class DocverseClient {
     baseUrl;
     token;
+    org;
+    project;
+    fetchImpl;
     client;
     errorContext;
     constructor(baseUrl, token, org, project, fetchImpl = globalThis.fetch) {
         this.baseUrl = baseUrl;
         this.token = token;
+        this.org = org;
+        this.project = project;
+        this.fetchImpl = fetchImpl;
         this.client = createClient({
             baseUrl,
             headers: { Authorization: `Bearer ${token}` },
@@ -60557,16 +60563,28 @@ class DocverseClient {
         }));
         return result;
     }
-    async completeUpload(buildSelfUrl) {
-        const { org, project, build } = parseBuildSelfUrl(buildSelfUrl, this.baseUrl);
+    async completeUpload(buildId) {
         const result = await this.callApi(() => this.client.PATCH('/orgs/{org}/projects/{project}/builds/{build}', {
-            params: { path: { org, project, build } },
+            params: { path: { org: this.org, project: this.project, build: buildId } },
             body: { status: 'uploaded' },
         }));
         return result;
     }
+    /**
+     * Fetch the build-processing queue job by following the build's `queue_url`
+     * HATEOAS link. `queue_url` is minted server-side (via `request.url_for`) on
+     * the same host the action just PATCHed, so it is always same-origin and the
+     * Gafaelfawr bearer is attached. There is no reconstruction fallback here: a
+     * cross-origin or otherwise anomalous `queue_url` simply surfaces as a normal
+     * `ApiError` (cross-origin links are followed without the token, so the
+     * server's auth check fails as expected).
+     */
     async getQueueJob(queueUrl) {
-        return this.getQueueJobById(parseJobId(queueUrl));
+        return this.followLink(queueUrl);
+    }
+    /** Follow an absolute queue-job URL (e.g. a `queue_job_url` progress link). */
+    async getQueueJobByUrl(url) {
+        return this.followLink(url);
     }
     async getQueueJobById(jobId) {
         const result = await this.callApi(() => this.client.GET('/queue/jobs/{job}', { params: { path: { job: jobId } } }));
@@ -60577,6 +60595,45 @@ class DocverseClient {
             params: { path: { org, project, edition: slug } },
         }));
         return result;
+    }
+    /** Follow an absolute edition URL (e.g. a progress `edition_url` link). */
+    async getEditionByUrl(url) {
+        return this.followLink(url);
+    }
+    /**
+     * Whether `url` shares the configured `base-url` origin. Callers use this to
+     * decide whether a server-provided HATEOAS link is safe to follow (the
+     * bearer token is only ever attached to same-origin requests) before falling
+     * back to path reconstruction.
+     */
+    isSameOrigin(url) {
+        try {
+            return new URL(url).origin === new URL(this.baseUrl).origin;
+        }
+        catch {
+            return false;
+        }
+    }
+    /**
+     * Follow an absolute API URL with a bare `fetch`, reusing {@link callApi} for
+     * error/network handling. The Gafaelfawr bearer is attached only when the URL
+     * is same-origin with `base-url`, so the token never leaks to a host the
+     * action did not configure. On a non-OK response the body is left unread so
+     * {@link buildFailure} can consume it for the error message.
+     */
+    async followLink(url) {
+        const sameOrigin = this.isSameOrigin(url);
+        return this.callApi(async () => {
+            const headers = { Accept: 'application/json' };
+            if (sameOrigin) {
+                headers.Authorization = `Bearer ${this.token}`;
+            }
+            const response = await this.fetchImpl(url, { headers });
+            if (!response.ok) {
+                return { response };
+            }
+            return { data: (await response.json()), response };
+        });
     }
     async callApi(call) {
         let result;
@@ -60622,20 +60679,6 @@ async function uploadTarball(uploadUrl, filePath, fetchImpl = globalThis.fetch) 
         const failure = await buildFailure(response, undefined);
         throw new ApiError(formatUploadError(failure), failure);
     }
-}
-function parseJobId(queueUrl) {
-    const match = queueUrl.match(/queue\/jobs\/([A-Za-z0-9-]+)\/?$/);
-    if (!match) {
-        throw new Error(`Could not parse job ID out of queue URL: ${queueUrl}`);
-    }
-    return match[1];
-}
-function parseBuildSelfUrl(selfUrl, baseUrl) {
-    const match = selfUrl.match(/orgs\/([^/]+)\/projects\/([^/]+)\/builds\/([^/?#]+)/);
-    if (!match) {
-        throw new Error(`Could not parse build self_url: ${selfUrl} (base ${baseUrl})`);
-    }
-    return { org: match[1], project: match[2], build: match[3] };
 }
 async function buildFailure(response, parsedError) {
     let rawBody = '';
@@ -60686,6 +60729,32 @@ function extractUpdatedSlugs(job) {
     return extractProgressSlugs(job, 'editions_updated');
 }
 /**
+ * Editions updated by this build (`progress.editions_updated`), each with its
+ * slug and the optional `edition_url` HATEOAS link the server embedded. The
+ * link is carried only when it is a string; callers reconstruct the edition
+ * path from `org`/`project`/`slug` when it is absent. Reads the typed
+ * `EditionUpdateRef` fields but stays defensive: `progress` is `object | null`
+ * at runtime and the array may carry malformed entries.
+ */
+function extractUpdatedEditions(job) {
+    if (!job?.progress)
+        return [];
+    const progress = job.progress;
+    const raw = progress.editions_updated;
+    if (!Array.isArray(raw))
+        return [];
+    return raw
+        .filter((entry) => typeof entry === 'object' && entry !== null)
+        .map((entry) => {
+        const ref = { slug: entry.slug };
+        if (typeof entry.edition_url === 'string') {
+            ref.editionUrl = entry.edition_url;
+        }
+        return ref;
+    })
+        .filter((ref) => typeof ref.slug === 'string');
+}
+/**
  * Slugs of editions that failed during this build (`progress.editions_failed`).
  * The build-processing job does not always emit this key; the defensive parse
  * returns `[]` when it is absent, so the comment's failure `<details>` block is
@@ -60700,9 +60769,11 @@ function extractSkippedSlugs(job) {
 }
 /**
  * Pull the `publish_edition` job references out of the build job's progress
- * payload (`progress.publish_jobs[]`), mapping `edition_slug`→`editionSlug` and
- * `publish_queue_job_public_id`→`jobId`. `progress` is typed `object | null` in
- * OpenAPI, so we normalize defensively (drop entries missing either string).
+ * payload (`progress.publish_jobs[]`), mapping `edition_slug`→`editionSlug`,
+ * `publish_queue_job_public_id`→`jobId`, and (when present as a string) the
+ * `queue_job_url`→`queueJobUrl` HATEOAS link. `progress` is typed
+ * `object | null` in OpenAPI, so we normalize defensively (drop entries missing
+ * either required string).
  */
 function extractPublishJobs(job) {
     if (!job?.progress)
@@ -60713,10 +60784,16 @@ function extractPublishJobs(job) {
         return [];
     return raw
         .filter((entry) => typeof entry === 'object' && entry !== null)
-        .map((entry) => ({
-        editionSlug: entry.edition_slug,
-        jobId: entry.publish_queue_job_public_id,
-    }))
+        .map((entry) => {
+        const ref = {
+            editionSlug: entry.edition_slug,
+            jobId: entry.publish_queue_job_public_id,
+        };
+        if (typeof entry.queue_job_url === 'string') {
+            ref.queueJobUrl = entry.queue_job_url;
+        }
+        return ref;
+    })
         .filter((ref) => typeof ref.editionSlug === 'string' && typeof ref.jobId === 'string');
 }
 /** Trim an edition resource down to the fields surfaced in the action outputs. */
@@ -61085,9 +61162,17 @@ async function pollQueueJob(client, queueUrl, opts) {
  * Poll every `publish_edition` job concurrently until each is terminal. Each
  * job shares the same `opts` (in particular the remaining `timeoutMs` budget).
  * A `PollTimeoutError` from any job rejects the whole batch.
+ *
+ * Each job is fetched by following its `queue_job_url` HATEOAS link when the
+ * server embedded one and it is same-origin with `base-url`; otherwise the
+ * `/queue/jobs/{job}` path is reconstructed from the job id (the fallback for
+ * servers that omit progress links, e.g. when Docverse is not registered in
+ * Repertoire).
  */
 async function pollPublishJobs(client, refs, opts) {
-    return Promise.all(refs.map((ref) => pollJob(() => client.getQueueJobById(ref.jobId), opts).then((job) => ({
+    return Promise.all(refs.map((ref) => pollJob(() => ref.queueJobUrl && client.isSameOrigin(ref.queueJobUrl)
+        ? client.getQueueJobByUrl(ref.queueJobUrl)
+        : client.getQueueJobById(ref.jobId), opts).then((job) => ({
         editionSlug: ref.editionSlug,
         job,
     }))));
@@ -61217,7 +61302,7 @@ async function run() {
         }
         await uploadTarball(build.upload_url, tarball.path);
         info('Tarball upload complete.');
-        const patched = await client.completeUpload(build.self_url);
+        const patched = await client.completeUpload(build.id);
         info(`Build ${patched.id} marked uploaded; queue url=${patched.queue_url ?? '<none>'}`);
         // Shared budget for build polling and the subsequent publish wait.
         const deadline = Date.now() + inputs.waitTimeoutMs;
@@ -61250,7 +61335,7 @@ async function run() {
     }
 }
 async function reportOutcome(client, inputs, build, job, publishStatus) {
-    const editions = await resolveEditions(client, inputs.org, inputs.project, extractUpdatedSlugs(job));
+    const editions = await resolveEditions(client, inputs.org, inputs.project, extractUpdatedEditions(job));
     const outcome = { build, job, editions, publishStatus };
     emitOutputs(outcome);
     await writeStepSummary(outcome);
@@ -61341,20 +61426,26 @@ async function waitForPublish(client, job, timeoutMs) {
 }
 /**
  * Resolve `published_url`/`title` for each updated edition. The queue-job
- * progress only names the updated slugs; the published URL lives on the
- * edition resource, so we fetch each one. A failed lookup degrades to a
- * slug-only entry rather than failing the whole action.
+ * progress names the updated slugs and (when available) an `edition_url`
+ * HATEOAS link; the published URL lives only on the edition resource, so we
+ * still fetch each one — following `edition_url` when it is present and
+ * same-origin, otherwise reconstructing the path from `org`/`project`/`slug`.
+ * A failed lookup degrades to a slug-only entry rather than failing the whole
+ * action.
  */
-async function resolveEditions(client, org, project, slugs) {
+async function resolveEditions(client, org, project, refs) {
     const editions = [];
-    for (const slug of slugs) {
+    for (const ref of refs) {
         try {
-            editions.push(toEditionEntry(await client.getEdition(org, project, slug)));
+            const edition = ref.editionUrl && client.isSameOrigin(ref.editionUrl)
+                ? await client.getEditionByUrl(ref.editionUrl)
+                : await client.getEdition(org, project, ref.slug);
+            editions.push(toEditionEntry(edition));
         }
         catch (err) {
             const message = err instanceof Error ? err.message : String(err);
-            warning(`Could not resolve published URL for edition \`${slug}\`: ${message}`);
-            editions.push({ slug });
+            warning(`Could not resolve published URL for edition \`${ref.slug}\`: ${message}`);
+            editions.push({ slug: ref.slug });
         }
     }
     return editions;

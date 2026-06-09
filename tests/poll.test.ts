@@ -36,15 +36,30 @@ function fakeClient(jobs: QueueJob[]): { client: DocverseClient; calls: number }
   } as { client: DocverseClient; calls: number };
 }
 
-/** Fake client exposing `getQueueJobById`, returning a per-id sequence of jobs. */
-function fakePublishClient(jobsById: Record<string, QueueJob[]>): DocverseClient {
+/**
+ * Fake client exposing `getQueueJobById` (per-id sequence), `getQueueJobByUrl`
+ * (per-url sequence), and an `isSameOrigin` that treats `https://example.test`
+ * as the configured origin.
+ */
+function fakePublishClient(
+  jobsById: Record<string, QueueJob[]>,
+  jobsByUrl: Record<string, QueueJob[]> = {},
+): DocverseClient {
   const calls: Record<string, number> = {};
+  const next = (seq: QueueJob[], key: string): QueueJob => {
+    const idx = Math.min(calls[key] ?? 0, seq.length - 1);
+    calls[key] = (calls[key] ?? 0) + 1;
+    return seq[idx]!;
+  };
   return {
-    getQueueJobById: vi.fn(async (jobId: string) => {
-      const seq = jobsById[jobId]!;
-      const idx = Math.min(calls[jobId] ?? 0, seq.length - 1);
-      calls[jobId] = (calls[jobId] ?? 0) + 1;
-      return seq[idx]!;
+    getQueueJobById: vi.fn(async (jobId: string) => next(jobsById[jobId]!, `id:${jobId}`)),
+    getQueueJobByUrl: vi.fn(async (url: string) => next(jobsByUrl[url]!, `url:${url}`)),
+    isSameOrigin: vi.fn((url: string) => {
+      try {
+        return new URL(url).origin === 'https://example.test';
+      } catch {
+        return false;
+      }
     }),
   } as unknown as DocverseClient;
 }
@@ -177,5 +192,38 @@ describe('pollPublishJobs', () => {
         },
       }),
     ).rejects.toBeInstanceOf(PollTimeoutError);
+  });
+
+  it('follows queue_job_url when present and same-origin', async () => {
+    const url = 'https://example.test/queue/jobs/p1';
+    const client = fakePublishClient({}, { [url]: [makeJob('completed')] });
+    const results = await pollPublishJobs(
+      client,
+      [{ editionSlug: 'main', jobId: 'p1', queueJobUrl: url }],
+      stable,
+    );
+    expect(results[0]?.job.status).toBe('completed');
+    expect(client.getQueueJobByUrl).toHaveBeenCalledWith(url);
+    expect(client.getQueueJobById).not.toHaveBeenCalled();
+  });
+
+  it('reconstructs by id when queue_job_url is absent', async () => {
+    const client = fakePublishClient({ p1: [makeJob('completed')] });
+    const results = await pollPublishJobs(client, [{ editionSlug: 'main', jobId: 'p1' }], stable);
+    expect(results[0]?.job.status).toBe('completed');
+    expect(client.getQueueJobById).toHaveBeenCalledWith('p1');
+    expect(client.getQueueJobByUrl).not.toHaveBeenCalled();
+  });
+
+  it('reconstructs by id when queue_job_url is cross-origin', async () => {
+    const client = fakePublishClient({ p1: [makeJob('completed')] });
+    const results = await pollPublishJobs(
+      client,
+      [{ editionSlug: 'main', jobId: 'p1', queueJobUrl: 'https://other.test/queue/jobs/p1' }],
+      stable,
+    );
+    expect(results[0]?.job.status).toBe('completed');
+    expect(client.getQueueJobById).toHaveBeenCalledWith('p1');
+    expect(client.getQueueJobByUrl).not.toHaveBeenCalled();
   });
 });

@@ -41,9 +41,9 @@ export class DocverseClient {
   constructor(
     private readonly baseUrl: string,
     private readonly token: string,
-    org: string,
-    project: string,
-    fetchImpl: Fetch = globalThis.fetch,
+    private readonly org: string,
+    private readonly project: string,
+    private readonly fetchImpl: Fetch = globalThis.fetch,
   ) {
     this.client = createOpenapiFetch<paths>({
       baseUrl,
@@ -74,19 +74,32 @@ export class DocverseClient {
     return result as Build;
   }
 
-  async completeUpload(buildSelfUrl: string): Promise<Build> {
-    const { org, project, build } = parseBuildSelfUrl(buildSelfUrl, this.baseUrl);
+  async completeUpload(buildId: string): Promise<Build> {
     const result = await this.callApi(() =>
       this.client.PATCH('/orgs/{org}/projects/{project}/builds/{build}', {
-        params: { path: { org, project, build } },
+        params: { path: { org: this.org, project: this.project, build: buildId } },
         body: { status: 'uploaded' },
       }),
     );
     return result as Build;
   }
 
+  /**
+   * Fetch the build-processing queue job by following the build's `queue_url`
+   * HATEOAS link. `queue_url` is minted server-side (via `request.url_for`) on
+   * the same host the action just PATCHed, so it is always same-origin and the
+   * Gafaelfawr bearer is attached. There is no reconstruction fallback here: a
+   * cross-origin or otherwise anomalous `queue_url` simply surfaces as a normal
+   * `ApiError` (cross-origin links are followed without the token, so the
+   * server's auth check fails as expected).
+   */
   async getQueueJob(queueUrl: string): Promise<QueueJob> {
-    return this.getQueueJobById(parseJobId(queueUrl));
+    return this.followLink<QueueJob>(queueUrl);
+  }
+
+  /** Follow an absolute queue-job URL (e.g. a `queue_job_url` progress link). */
+  async getQueueJobByUrl(url: string): Promise<QueueJob> {
+    return this.followLink<QueueJob>(url);
   }
 
   async getQueueJobById(jobId: string): Promise<QueueJob> {
@@ -103,6 +116,47 @@ export class DocverseClient {
       }),
     );
     return result as Edition;
+  }
+
+  /** Follow an absolute edition URL (e.g. a progress `edition_url` link). */
+  async getEditionByUrl(url: string): Promise<Edition> {
+    return this.followLink<Edition>(url);
+  }
+
+  /**
+   * Whether `url` shares the configured `base-url` origin. Callers use this to
+   * decide whether a server-provided HATEOAS link is safe to follow (the
+   * bearer token is only ever attached to same-origin requests) before falling
+   * back to path reconstruction.
+   */
+  isSameOrigin(url: string): boolean {
+    try {
+      return new URL(url).origin === new URL(this.baseUrl).origin;
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * Follow an absolute API URL with a bare `fetch`, reusing {@link callApi} for
+   * error/network handling. The Gafaelfawr bearer is attached only when the URL
+   * is same-origin with `base-url`, so the token never leaks to a host the
+   * action did not configure. On a non-OK response the body is left unread so
+   * {@link buildFailure} can consume it for the error message.
+   */
+  private async followLink<T>(url: string): Promise<T> {
+    const sameOrigin = this.isSameOrigin(url);
+    return this.callApi<T>(async () => {
+      const headers: Record<string, string> = { Accept: 'application/json' };
+      if (sameOrigin) {
+        headers.Authorization = `Bearer ${this.token}`;
+      }
+      const response = await this.fetchImpl(url, { headers });
+      if (!response.ok) {
+        return { response };
+      }
+      return { data: (await response.json()) as T, response };
+    });
   }
 
   private async callApi<T>(
@@ -164,28 +218,6 @@ export async function uploadTarball(
     const failure = await buildFailure(response, undefined);
     throw new ApiError(formatUploadError(failure), failure);
   }
-}
-
-function parseJobId(queueUrl: string): string {
-  const match = queueUrl.match(/queue\/jobs\/([A-Za-z0-9-]+)\/?$/);
-  if (!match) {
-    throw new Error(`Could not parse job ID out of queue URL: ${queueUrl}`);
-  }
-  return match[1]!;
-}
-
-interface BuildPath {
-  org: string;
-  project: string;
-  build: string;
-}
-
-function parseBuildSelfUrl(selfUrl: string, baseUrl: string): BuildPath {
-  const match = selfUrl.match(/orgs\/([^/]+)\/projects\/([^/]+)\/builds\/([^/?#]+)/);
-  if (!match) {
-    throw new Error(`Could not parse build self_url: ${selfUrl} (base ${baseUrl})`);
-  }
-  return { org: match[1]!, project: match[2]!, build: match[3]! };
 }
 
 async function buildFailure(response: Response, parsedError: unknown): Promise<HttpFailure> {

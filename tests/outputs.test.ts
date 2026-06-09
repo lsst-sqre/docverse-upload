@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { Edition, QueueJob } from '../src/client.js';
 import {
   extractPublishJobs,
+  extractUpdatedEditions,
   extractUpdatedSlugs,
   selectPublishedUrl,
   toEditionEntry,
@@ -55,6 +56,52 @@ describe('extractUpdatedSlugs', () => {
   });
 });
 
+describe('extractUpdatedEditions', () => {
+  it('pulls slug and edition_url out of editions_updated', () => {
+    const job = makeJob({
+      editions_updated: [
+        {
+          slug: 'main',
+          action: 'updated',
+          edition_url: 'https://example.test/orgs/o/projects/p/editions/main',
+        },
+        { slug: 'v1', action: 'created' },
+      ],
+    });
+    expect(extractUpdatedEditions(job)).toEqual([
+      { slug: 'main', editionUrl: 'https://example.test/orgs/o/projects/p/editions/main' },
+      { slug: 'v1' },
+    ]);
+  });
+
+  it('omits editionUrl when edition_url is missing or not a string', () => {
+    const refs = extractUpdatedEditions(
+      makeJob({
+        editions_updated: [
+          { slug: 'a', edition_url: 42 },
+          { slug: 'b', edition_url: null },
+          { slug: 'c' },
+        ],
+      }),
+    );
+    expect(refs).toEqual([{ slug: 'a' }, { slug: 'b' }, { slug: 'c' }]);
+    expect(refs.every((r) => r.editionUrl === undefined)).toBe(true);
+  });
+
+  it('ignores entries without a string slug and non-array payloads', () => {
+    expect(extractUpdatedEditions(makeJob({ editions_updated: [{ action: 'x' }, 42] }))).toEqual(
+      [],
+    );
+    expect(extractUpdatedEditions(makeJob({ editions_updated: 'nope' }))).toEqual([]);
+  });
+
+  it('returns an empty array when progress is missing', () => {
+    expect(extractUpdatedEditions(null)).toEqual([]);
+    expect(extractUpdatedEditions(makeJob(null))).toEqual([]);
+    expect(extractUpdatedEditions(makeJob({}))).toEqual([]);
+  });
+});
+
 describe('extractPublishJobs', () => {
   it('pulls edition/job refs out of publish_jobs', () => {
     const job = makeJob({
@@ -81,6 +128,28 @@ describe('extractPublishJobs', () => {
       ],
     });
     expect(extractPublishJobs(job)).toEqual([{ editionSlug: 'main', jobId: 'p1' }]);
+  });
+
+  it('maps queue_job_url to queueJobUrl when present and omits it otherwise', () => {
+    const job = makeJob({
+      publish_jobs: [
+        {
+          edition_slug: 'main',
+          publish_queue_job_public_id: 'p1',
+          queue_job_url: 'https://example.test/queue/jobs/p1',
+        },
+        { edition_slug: 'v1', publish_queue_job_public_id: 'p2' },
+        { edition_slug: 'v2', publish_queue_job_public_id: 'p3', queue_job_url: 42 },
+      ],
+    });
+    const refs = extractPublishJobs(job);
+    expect(refs).toEqual([
+      { editionSlug: 'main', jobId: 'p1', queueJobUrl: 'https://example.test/queue/jobs/p1' },
+      { editionSlug: 'v1', jobId: 'p2' },
+      { editionSlug: 'v2', jobId: 'p3' },
+    ]);
+    expect(refs[1]?.queueJobUrl).toBeUndefined();
+    expect(refs[2]?.queueJobUrl).toBeUndefined();
   });
 
   it('returns an empty array when publish_jobs is missing or non-array', () => {
