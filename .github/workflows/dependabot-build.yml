@@ -1,0 +1,99 @@
+name: Rebuild dist/ for Dependabot PRs
+
+# Rebuilds the committed generated/ + dist/ bundle on Dependabot PRs and pushes
+# the result back to the PR branch, so a runtime-dependency bump lands with an
+# in-sync bundle and CI's "Verify generated/ and dist/ are up to date" gate
+# passes. This is the docverse analog of squareone's dependabot-changesets
+# workflow (this repo uses scriv, not changesets, and CI requires no changelog
+# fragment — the thing Dependabot can't produce on its own here is a rebuilt
+# dist/).
+#
+# Security Design:
+# - Uses `pull_request` trigger (not `pull_request_target`) to avoid the "pwn
+#   request" vulnerability where untrusted code runs with write permissions.
+# - Verifies the PR author with `github.event.pull_request.user.login` (not
+#   `github.actor`) to prevent "Confused Deputy" attacks.
+# - Safe for Dependabot PRs because Dependabot creates branches in this same
+#   repository (not forks), so the `pull_request` trigger has the permissions
+#   it needs. This is the pattern GitHub's Dependabot docs recommend.
+#
+# IMPORTANT: Dependabot credential requirements
+# - GitHub isolates Dependabot-triggered workflows: only Dependabot *secrets*
+#   are exposed, but Actions *configuration variables* (the `vars` context) ARE
+#   available (GitHub enabled this for the dependabot actor in March 2023). So:
+#     * CI_GH_APP_PRIVATE_KEY must be a DEPENDABOT SECRET (it's sensitive).
+#     * CI_GH_APP_ID is read from `vars` — store it as a repository (or org)
+#       configuration VARIABLE, not a secret (the App ID is a non-sensitive id).
+# - Pushing the rebuilt bundle with the App token (rather than the default
+#   GITHUB_TOKEN) is what gives the new commit a fresh CI run and lets
+#   dependabot-auto-merge proceed; a GITHUB_TOKEN push would not re-trigger CI.
+# - CI_GH_APP_ID / CI_GH_APP_PRIVATE_KEY are placeholders — substitute the real
+#   lsst-sqre org App variable/secret names at provisioning time.
+
+permissions:
+  contents: write
+  pull-requests: write
+
+on:
+  pull_request:
+    types: [opened, synchronize]
+
+jobs:
+  rebuild-dist:
+    runs-on: ubuntu-latest
+    if: github.event.pull_request.user.login == 'dependabot[bot]'
+    steps:
+      - name: Generate GitHub App token
+        id: token
+        uses: actions/create-github-app-token@v3
+        with:
+          app-id: ${{ vars.CI_GH_APP_ID }}
+          private-key: ${{ secrets.CI_GH_APP_PRIVATE_KEY }}
+
+      - name: Resolve App bot user id
+        id: app-user
+        env:
+          GH_TOKEN: ${{ steps.token.outputs.token }}
+          APP_SLUG: ${{ steps.token.outputs.app-slug }}
+        run: |
+          USER_ID=$(gh api "/users/${APP_SLUG}[bot]" --jq .id)
+          echo "login=${APP_SLUG}[bot]" >> "$GITHUB_OUTPUT"
+          echo "user-id=${USER_ID}" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout PR branch
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.ref }}
+          token: ${{ steps.token.outputs.token }}
+
+      - uses: pnpm/action-setup@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate types
+        run: pnpm generate-types
+
+      - name: Build bundle
+        run: pnpm build
+
+      - name: Commit rebuilt generated/ and dist/ if changed
+        env:
+          APP_LOGIN: ${{ steps.app-user.outputs.login }}
+          APP_USER_ID: ${{ steps.app-user.outputs.user-id }}
+        run: |
+          git add generated dist
+          if git diff --staged --quiet; then
+            echo "generated/ and dist/ already in sync; nothing to commit."
+            exit 0
+          fi
+          git -c user.name="${APP_LOGIN}" \
+              -c user.email="${APP_USER_ID}+${APP_LOGIN}@users.noreply.github.com" \
+              commit -m "Rebuild dist/ for dependency update"
+          git push

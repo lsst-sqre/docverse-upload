@@ -4,15 +4,42 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
+    cooldown:
+      default-days: 5
+      semver-patch-days: 3
+      # GitHub-published actions are exempt: they are first-party and low-risk,
+      # so we take them without waiting out the cooldown window.
+      exclude:
+        - "actions/*"
+        - "github/*"
     groups:
       actions:
         patterns:
           - "*"
+        # Restrict the group to minor/patch so a major never lands inside it and
+        # blocks the group's auto-merge; majors split out as individual PRs.
+        update-types:
+          - "minor"
+          - "patch"
 
   - package-ecosystem: "npm"
     directory: "/"
     schedule:
       interval: "weekly"
+    cooldown:
+      default-days: 5
+      semver-patch-days: 3
+      # @actions/* packages are GitHub-published first-party deps; exempt them.
+      exclude:
+        - "@actions/*"
     groups:
       dev-dependencies:
         dependency-type: "development"
+        update-types:
+          - "minor"
+          - "patch"
+      production-dependencies:
+        dependency-type: "production"
+        update-types:
+          - "minor"
+          - "patch"
