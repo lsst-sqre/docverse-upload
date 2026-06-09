@@ -11,23 +11,51 @@ user-facing behavior changes, or that's blocked by a toolchain
 incompatibility, leave an explanatory comment and move on. Stop the loop only
 when nothing but those genuinely-unmergeable PRs remain.
 
+## What the automation already does
+
+Three Dependabot workflows now handle the routine cases on their own:
+
+- `.github/workflows/dependabot-build.yml` rebuilds and commits `generated/` +
+  `dist/` on **every** Dependabot PR (pushed by the org GitHub App so the new
+  commit gets a fresh CI run).
+- `.github/workflows/dependabot-label.yml` applies a
+  `dependencies-{major,minor,patch}` label from `dependabot/fetch-metadata`.
+- `.github/workflows/dependabot-auto-merge.yml` enables squash auto-merge once
+  CI is green **and** the label is `dependencies-patch`/`dependencies-minor`.
+
+So patch/minor bumps rebuild `dist/`, go green, and merge themselves. **This
+skill is for the leftovers:**
+
+- `dependencies-major` PRs — labeled and rebuilt, but the fail-closed allowlist
+  blocks their auto-merge by design (manual review).
+- PRs where the new dependency version needs **code changes** — CI stays red
+  even after the bot's `dist/` rebuild, so auto-merge never fires.
+
 ## Repo context you must know
 
 This repo is a GitHub Action bundled with `@vercel/ncc` into `dist/`. CI
 (`.github/workflows/ci.yml`) ends with a **"Verify generated/ and dist/ are up
 to date"** step (`git diff --exit-code generated/ dist/`).
 
-**Dependabot never runs `pnpm build`.** So any bump to a *runtime* dependency
-(anything in `package.json` `dependencies`, e.g. `@actions/core`,
-`openapi-fetch`, `tar`) lands with a stale `dist/` and fails that step. The fix
-is almost always: rebuild the bundle and commit it. Dev-only bumps usually
-don't touch `dist/`.
+Any bump to a *runtime* dependency (anything in `package.json` `dependencies`,
+e.g. `@actions/core`, `openapi-fetch`, `tar`) needs a rebuilt `dist/` or it
+fails that step. The `dependabot-build` workflow normally does this rebuild
+automatically — **the bot may have already pushed a `dist/` rebuild commit to
+the branch.** So `git pull` (or fetch + reset) before working, and don't
+blindly re-rebuild: if `dist/` is already in sync, CI is red for some *other*
+reason (a code change the new version needs). Dev-only bumps usually don't
+touch `dist/` at all.
 
 ## Per-PR workflow
 
-1. List work: `gh pr list --repo lsst-sqre/docverse-upload --author "app/dependabot" --state open --json number,title,mergeable,mergeStateStatus`
+1. List blocked work — open Dependabot PRs that did **not** auto-merge, with
+   their semver label:
+   `gh pr list --repo lsst-sqre/docverse-upload --author "app/dependabot" --state open --json number,title,labels,mergeable,mergeStateStatus`.
+   Expect mostly `dependencies-major` PRs and PRs whose CI is red after the
+   bot's rebuild; patch/minor PRs with green CI are already auto-merging.
 2. Read the failure: `gh pr checks <n>`, then `gh run view --log-failed <runId>`.
-3. `git fetch origin && git checkout <branch>` then `pnpm install --frozen-lockfile`.
+3. `git fetch origin && git checkout <branch> && git pull` (pick up any `dist/`
+   commit the bot already pushed), then `pnpm install --frozen-lockfile`.
 4. Run the local CI gate: `bash .claude/skills/dependabot-merge/scripts/ci-local.sh`. It runs the exact CI sequence and stops at the first failing step.
 5. Fix the failing step (see **Known fix patterns**). Rebuilding `dist/` is `pnpm generate-types && pnpm build`.
 6. Re-run the gate until clean, then `git add -A`, commit, and push to the Dependabot branch (`git push` or `--force-with-lease` after a rebase).
