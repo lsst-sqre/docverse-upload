@@ -26,7 +26,12 @@ permissions:
 jobs:
   label:
     runs-on: ubuntu-latest
-    if: github.event.pull_request.user.login == 'dependabot[bot]'
+    # Author check AND triggering-actor check: dependabot/fetch-metadata only works
+    # inside a Dependabot-triggered run. On a maintainer's (or App's) push the actor
+    # isn't dependabot[bot], so the job skips cleanly instead of failing fetch-metadata
+    # with "PR is not from Dependabot". The label from the original Dependabot push
+    # already stands.
+    if: github.event.pull_request.user.login == 'dependabot[bot]' && github.actor == 'dependabot[bot]'
     steps:
       - name: Fetch Dependabot metadata
         id: meta

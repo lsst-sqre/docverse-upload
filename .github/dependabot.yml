@@ -5,8 +5,10 @@ updates:
     schedule:
       interval: "weekly"
     cooldown:
+      # Only `default-days` is valid for the github-actions ecosystem; the
+      # semver-*-days keys are unsupported here (they apply to semver ecosystems
+      # like npm) and fail Dependabot config validation.
       default-days: 5
-      semver-patch-days: 3
       # GitHub-published actions are exempt: they are first-party and low-risk,
       # so we take them without waiting out the cooldown window.
       exclude:
