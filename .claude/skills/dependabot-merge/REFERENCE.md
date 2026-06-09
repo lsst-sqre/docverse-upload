@@ -8,7 +8,7 @@ pnpm biome ci .          # lint — exits 0 on warnings, non-zero only on errors
 pnpm typecheck           # tsc --noEmit
 pnpm test                # vitest run
 pnpm generate-types      # openapi-typescript openapi.json -> generated/api-types.ts
-pnpm build               # ncc build src/index.ts -o dist --transpile-only
+pnpm build               # node scripts/build.mjs (esbuild bundle -> dist/)
 git diff --exit-code generated/ dist/   # must be empty
 ```
 
@@ -49,20 +49,15 @@ source under test; only `warning` becomes an assertable spy. The mock is scoped
 to that one test file, so other tests using `core` are unaffected. Rebuild
 `dist/` afterward (`@actions/core` is bundled).
 
-## TypeScript 6 + ncc — why it's unmergeable
+## TypeScript 6 — no longer blocked
 
-`@vercel/ncc@0.38.4` (latest) builds by spreading the project's
-`compilerOptions` and then forcing `outDir: "//"` while not preserving a
-`rootDir`. TypeScript 6 promotes "`outDir` set without `rootDir`" from a warning
-to a fatal `TS5011`, so `pnpm build` fails. Setting `rootDir`/`outDir` in
-`tsconfig.json` does not help (ncc strips `rootDir`; `rootDir: "./src"` also
-breaks `tsc --noEmit` with `TS6059` because tests live outside it).
-
-Resolution until ncc ships TS 6 support (or the build moves off ncc): keep
-`typescript` at `^5.x`. If it arrived inside the dev-dependencies group PR,
-revert only that one line in `package.json`, `pnpm install --no-frozen-lockfile`,
-and comment on the PR so the reviewer knows why TS 6 was excluded. Dependabot
-will re-propose TS 6 on its own; that PR stays blocked for the same reason.
+The build used to run `@vercel/ncc`, which drove the TypeScript compiler and
+forced `outDir` without a `rootDir`; TypeScript 6 promotes that to a fatal
+`TS5011`, so `pnpm build` failed and `typescript` was pinned to `^5.x`. The
+bundler is now **esbuild** (`scripts/build.mjs`), which transpiles with its own
+Go compiler and never invokes `tsc`, so it no longer gates TypeScript upgrades.
+A `typescript` major bump now just needs `pnpm typecheck` (`tsc --noEmit`) to
+pass; rebuild `dist/` (`pnpm build`) and merge it like any other dep bump.
 
 ## Vite peer for Vitest 4
 
@@ -76,7 +71,7 @@ pnpm add -D "vite@^7"
 ```
 
 This is non-user-facing (Vite/Vitest are test-only; the shipped action is the
-ncc bundle, which doesn't use Vite).
+esbuild bundle, which doesn't use Vite).
 
 ## Useful gh commands
 

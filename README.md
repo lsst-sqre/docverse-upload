@@ -155,17 +155,17 @@ pnpm generate-types   # rebuild generated/api-types.ts from openapi.json
 pnpm test             # vitest
 pnpm typecheck        # tsc --noEmit
 pnpm lint             # biome ci .
-pnpm build            # bundle to dist/index.js via ncc
+pnpm build            # bundle to dist/ via esbuild (scripts/build.mjs)
 ```
 
-The repository commits both `generated/api-types.ts` and `dist/index.js`. CI rebuilds them and runs `git diff --exit-code` to fail PRs that haven't been updated.
+The repository commits both `generated/api-types.ts` and the bundled `dist/`. CI rebuilds them and runs `git diff --exit-code` to fail PRs that haven't been updated.
 
 ### Updating the OpenAPI spec
 
 1. Drop a fresh upstream spec into the repo root as `docverse-openapi.json` (or any path).
 2. Run `pnpm prep-openapi` to rewrite the paths (strip the `/docverse/api` prefix) and write `openapi.json`.
 3. Run `pnpm generate-types && pnpm build`.
-4. Commit `openapi.json`, `generated/api-types.ts`, and `dist/index.js` together so the diff is reviewable.
+4. Commit `openapi.json`, `generated/api-types.ts`, and the rebuilt `dist/` together so the diff is reviewable.
 
 ### Releasing
 

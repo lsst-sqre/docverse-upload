@@ -9,7 +9,7 @@
   },
   "packageManager": "pnpm@10.20.0",
   "scripts": {
-    "build": "ncc build src/index.ts -o dist --source-map --license licenses.txt --transpile-only",
+    "build": "node scripts/build.mjs",
     "typecheck": "tsc --noEmit",
     "lint": "biome check .",
     "lint:fix": "biome check --write .",
@@ -28,7 +28,8 @@
   "devDependencies": {
     "@biomejs/biome": "^2.4.16",
     "@types/node": "^25.9.1",
-    "@vercel/ncc": "^0.38.3",
+    "esbuild": "^0.28.0",
+    "esbuild-plugin-license": "^1.2.3",
     "msw": "^2.7.0",
     "openapi-typescript": "^7.5.2",
     "typescript": "^5.7.3",
