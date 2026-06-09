@@ -10,9 +10,10 @@ import {
   type EditionEntry,
   emitOutputs,
   extractPublishJobs,
-  extractUpdatedSlugs,
+  extractUpdatedEditions,
   type PublishStatus,
   toEditionEntry,
+  type UpdatedEditionRef,
   type UploadOutcome,
   writeStepSummary,
 } from './outputs.js';
@@ -48,7 +49,7 @@ export async function run(): Promise<void> {
     await uploadTarball(build.upload_url, tarball.path);
     core.info('Tarball upload complete.');
 
-    const patched = await client.completeUpload(build.self_url);
+    const patched = await client.completeUpload(build.id);
     core.info(`Build ${patched.id} marked uploaded; queue url=${patched.queue_url ?? '<none>'}`);
 
     // Shared budget for build polling and the subsequent publish wait.
@@ -93,7 +94,7 @@ async function reportOutcome(
     client,
     inputs.org,
     inputs.project,
-    extractUpdatedSlugs(job),
+    extractUpdatedEditions(job),
   );
   const outcome: UploadOutcome = { build, job, editions, publishStatus };
   emitOutputs(outcome);
@@ -205,24 +206,31 @@ async function waitForPublish(
 
 /**
  * Resolve `published_url`/`title` for each updated edition. The queue-job
- * progress only names the updated slugs; the published URL lives on the
- * edition resource, so we fetch each one. A failed lookup degrades to a
- * slug-only entry rather than failing the whole action.
+ * progress names the updated slugs and (when available) an `edition_url`
+ * HATEOAS link; the published URL lives only on the edition resource, so we
+ * still fetch each one — following `edition_url` when it is present and
+ * same-origin, otherwise reconstructing the path from `org`/`project`/`slug`.
+ * A failed lookup degrades to a slug-only entry rather than failing the whole
+ * action.
  */
 async function resolveEditions(
   client: DocverseClient,
   org: string,
   project: string,
-  slugs: string[],
+  refs: UpdatedEditionRef[],
 ): Promise<EditionEntry[]> {
   const editions: EditionEntry[] = [];
-  for (const slug of slugs) {
+  for (const ref of refs) {
     try {
-      editions.push(toEditionEntry(await client.getEdition(org, project, slug)));
+      const edition =
+        ref.editionUrl && client.isSameOrigin(ref.editionUrl)
+          ? await client.getEditionByUrl(ref.editionUrl)
+          : await client.getEdition(org, project, ref.slug);
+      editions.push(toEditionEntry(edition));
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
-      core.warning(`Could not resolve published URL for edition \`${slug}\`: ${message}`);
-      editions.push({ slug });
+      core.warning(`Could not resolve published URL for edition \`${ref.slug}\`: ${message}`);
+      editions.push({ slug: ref.slug });
     }
   }
   return editions;

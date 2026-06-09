@@ -85,6 +85,12 @@ export async function pollQueueJob(
  * Poll every `publish_edition` job concurrently until each is terminal. Each
  * job shares the same `opts` (in particular the remaining `timeoutMs` budget).
  * A `PollTimeoutError` from any job rejects the whole batch.
+ *
+ * Each job is fetched by following its `queue_job_url` HATEOAS link when the
+ * server embedded one and it is same-origin with `base-url`; otherwise the
+ * `/queue/jobs/{job}` path is reconstructed from the job id (the fallback for
+ * servers that omit progress links, e.g. when Docverse is not registered in
+ * Repertoire).
  */
 export async function pollPublishJobs(
   client: DocverseClient,
@@ -93,7 +99,13 @@ export async function pollPublishJobs(
 ): Promise<PublishJobResult[]> {
   return Promise.all(
     refs.map((ref) =>
-      pollJob(() => client.getQueueJobById(ref.jobId), opts).then((job) => ({
+      pollJob(
+        () =>
+          ref.queueJobUrl && client.isSameOrigin(ref.queueJobUrl)
+            ? client.getQueueJobByUrl(ref.queueJobUrl)
+            : client.getQueueJobById(ref.jobId),
+        opts,
+      ).then((job) => ({
         editionSlug: ref.editionSlug,
         job,
       })),

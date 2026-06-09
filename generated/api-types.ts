@@ -860,6 +860,53 @@ export interface components {
             min_age_days: number;
         };
         /**
+         * BuildProcessingProgress
+         * @description Typed ``progress`` payload for a ``build_processing`` queue job.
+         *
+         *     All fields are optional and unknown keys are preserved
+         *     (``extra="allow"``) so other job kinds — whose progress shapes are
+         *     not modelled here — round-trip unchanged through this model.
+         */
+        BuildProcessingProgress: {
+            /**
+             * Message
+             * @description Human-readable progress message.
+             */
+            message?: string | null;
+            /**
+             * Object Count
+             * @description Number of objects uploaded to the object store.
+             */
+            object_count?: number | null;
+            /**
+             * Total Size Bytes
+             * @description Total size in bytes of the uploaded objects.
+             */
+            total_size_bytes?: number | null;
+            /**
+             * Editions Updated
+             * @description Editions whose pointer was moved to this build.
+             */
+            editions_updated?: components["schemas"]["EditionUpdateRef"][] | null;
+            /**
+             * Editions Skipped
+             * @description Editions the stale-build guard left unchanged.
+             */
+            editions_skipped?: components["schemas"]["EditionUpdateRef"][] | null;
+            /**
+             * Publish Jobs
+             * @description Child publish_edition jobs enqueued for updated editions.
+             */
+            publish_jobs?: components["schemas"]["PublishJobRef"][] | null;
+            /**
+             * Edition Tracking Error
+             * @description ``True`` when edition tracking failed for this build.
+             */
+            edition_tracking_error?: boolean | null;
+        } & {
+            [key: string]: unknown;
+        };
+        /**
          * BuildStatus
          * @description Status of a documentation build.
          * @enum {string}
@@ -1314,6 +1361,33 @@ export interface components {
              * @description Base32 public ID of a build to point this edition at. Emergency-override path: unlike rollback, the build does not have to be in the edition's history.
              */
             build?: string | null;
+        };
+        /**
+         * EditionUpdateRef
+         * @description An entry in a build_processing job's ``editions_updated``/``skipped``.
+         *
+         *     All fields are optional and unknown keys are preserved
+         *     (``extra="allow"``) so the payload can grow without breaking older
+         *     clients.
+         */
+        EditionUpdateRef: {
+            /**
+             * Slug
+             * @description Slug of the edition that was updated or skipped.
+             */
+            slug?: string | null;
+            /**
+             * Action
+             * @description Tracking action applied to the edition (e.g. ``updated`` or ``created``); omitted for skipped editions.
+             */
+            action?: string | null;
+            /**
+             * Edition Url
+             * @description Absolute URL of the edition resource (a HATEOAS link clients follow instead of reconstructing the path). Omitted when the Docverse API base URL could not be resolved.
+             */
+            edition_url?: string | null;
+        } & {
+            [key: string]: unknown;
         };
         /**
          * FastlyConfig
@@ -2313,6 +2387,33 @@ export interface components {
             lifecycle_rules?: components["schemas"]["LifecycleRuleSet"] | null;
         };
         /**
+         * PublishJobRef
+         * @description An entry in a build_processing job's ``publish_jobs``.
+         *
+         *     Identifies a child ``publish_edition`` queue job enqueued for an
+         *     updated edition. All fields are optional and unknown keys are
+         *     preserved (``extra="allow"``).
+         */
+        PublishJobRef: {
+            /**
+             * Edition Slug
+             * @description Slug of the edition this publish job targets.
+             */
+            edition_slug?: string | null;
+            /**
+             * Publish Queue Job Public Id
+             * @description Public Crockford Base32 identifier of the publish_edition job.
+             */
+            publish_queue_job_public_id?: string | null;
+            /**
+             * Queue Job Url
+             * @description Absolute URL of the publish_edition queue-job resource (a HATEOAS link clients follow instead of reconstructing the path). Omitted when the Docverse API base URL could not be resolved.
+             */
+            queue_job_url?: string | null;
+        } & {
+            [key: string]: unknown;
+        };
+        /**
          * PublishStatus
          * @description CDN publish state for an edition or edition build history entry.
          * @enum {string}
@@ -2320,7 +2421,7 @@ export interface components {
         PublishStatus: "pending" | "publishing" | "published" | "failed";
         /**
          * QueueJob
-         * @description Queue job response model with HATEOAS self_url.
+         * @description Queue job response model with HATEOAS self and subject links.
          */
         QueueJob: {
             /**
@@ -2347,17 +2448,27 @@ export interface components {
              */
             subject_label?: string | null;
             /**
+             * Subject Url
+             * @description Absolute URL of the primary API resource this job processes (a HATEOAS link clients follow instead of reconstructing the path): the build for build_processing jobs, the edition for publish jobs. ``null`` when no API resource exists or it could not be resolved.
+             */
+            subject_url?: string | null;
+            /**
+             * Build Url
+             * @description Absolute URL of the build this job processes, or ``null`` when the job targets no build or it could not be resolved.
+             */
+            build_url?: string | null;
+            /**
+             * Edition Url
+             * @description Absolute URL of the edition this job targets, or ``null`` when the job targets no edition or it could not be resolved.
+             */
+            edition_url?: string | null;
+            /**
              * Phase
              * @description Current processing phase (e.g., inventory, tracking, editions, dashboard).
              */
             phase?: string | null;
-            /**
-             * Progress
-             * @description Structured progress data, phase-specific.
-             */
-            progress?: {
-                [key: string]: unknown;
-            } | null;
+            /** @description Structured progress data. Typed for ``build_processing`` jobs; other kinds round-trip their fields via ``extra='allow'``. */
+            progress?: components["schemas"]["BuildProcessingProgress"] | null;
             /**
              * Errors
              * @description Collected error details.
