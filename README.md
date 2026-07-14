@@ -172,3 +172,20 @@ The repository commits both `generated/api-types.ts` and the bundled `dist/`. CI
 1. Add a `changelog.d/<topic>.md` fragment summarizing the change.
 2. Merge to `main`.
 3. Tag `vX.Y.Z`. The `Release` workflow rebuilds, runs `uvx scriv collect`, updates the floating `vX` tag via `nowactions/update-majorver`, and creates a GitHub Release with the collected notes.
+
+### CI GitHub App (Rubin Squarebot)
+
+The Dependabot automation workflows authenticate as the [**Rubin Squarebot** GitHub App](https://github.com/apps/rubin-squarebot) rather than the default `GITHUB_TOKEN`. Two workflows mint a short-lived App token via [`actions/create-github-app-token`](https://github.com/actions/create-github-app-token):
+
+- **`dependabot-build.yml`** rebuilds `generated/` + `dist/` on a Dependabot PR and pushes the result back to the PR branch. The push is made with the App token (not `GITHUB_TOKEN`) so it **re-triggers CI** — a `GITHUB_TOKEN` push would not, leaving CI's `git diff --exit-code` bundle gate stuck.
+- **`dependabot-auto-merge.yml`** enables squash auto-merge for patch/minor Dependabot PRs once CI is green.
+
+**Required configuration.** The App is identified by a non-sensitive client id and authenticated with a private key:
+
+| Name | Kind | Used by |
+| ---- | ---- | ------- |
+| `CI_GH_APP_CLIENT_ID` | Actions **variable** (`vars`) | both workflows (available in every context) |
+| `CI_GH_APP_PRIVATE_KEY` | **Dependabot** secret | `dependabot-build.yml` (Dependabot `pull_request` context) |
+| `CI_GH_APP_PRIVATE_KEY` | **Actions** secret | `dependabot-auto-merge.yml` (`workflow_run` context, which cannot read Dependabot secrets) |
+
+The private key must be stored in **both** secret stores under the same name: a `workflow_run`-triggered workflow reads the Actions secret store, while a Dependabot-triggered workflow reads the Dependabot secret store.
