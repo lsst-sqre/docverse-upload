@@ -42,11 +42,17 @@ jobs:
         id: generate_token
         uses: actions/create-github-app-token@v3
         with:
-          # App ID is a non-sensitive identifier — stored as a configuration
-          # variable; only the private key is a secret. (This workflow runs in
-          # the default-branch workflow_run context, so it can read both, but we
-          # keep the split consistent with dependabot-build.yml.)
-          app-id: ${{ vars.CI_GH_APP_ID }}
+          # The App client-id is a non-sensitive identifier — stored as a
+          # configuration variable (vars), available in every context.
+          #
+          # IMPORTANT: this workflow uses the workflow_run trigger, so it runs as
+          # a normal Actions workflow in the default-branch context — NOT as a
+          # Dependabot-triggered run. It therefore reads the ACTIONS secret store,
+          # so CI_GH_APP_PRIVATE_KEY must exist as an *Actions* secret here. A
+          # Dependabot secret is NOT visible to workflow_run. (This differs from
+          # dependabot-build.yml, which is Dependabot-triggered and reads the
+          # Dependabot secret of the same name.)
+          client-id: ${{ vars.CI_GH_APP_CLIENT_ID }}
           private-key: ${{ secrets.CI_GH_APP_PRIVATE_KEY }}
 
       # Get PR information from the workflow run
