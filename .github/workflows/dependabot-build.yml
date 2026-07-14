@@ -21,14 +21,16 @@ name: Rebuild dist/ for Dependabot PRs
 # - GitHub isolates Dependabot-triggered workflows: only Dependabot *secrets*
 #   are exposed, but Actions *configuration variables* (the `vars` context) ARE
 #   available (GitHub enabled this for the dependabot actor in March 2023). So:
-#     * CI_GH_APP_PRIVATE_KEY must be a DEPENDABOT SECRET (it's sensitive).
-#     * CI_GH_APP_ID is read from `vars` — store it as a repository (or org)
-#       configuration VARIABLE, not a secret (the App ID is a non-sensitive id).
+#     * CI_GH_APP_PRIVATE_KEY must be a DEPENDABOT SECRET here (it's sensitive).
+#       It must ALSO exist as an Actions secret for dependabot-auto-merge.yml,
+#       which runs in workflow_run context and cannot read Dependabot secrets.
+#     * CI_GH_APP_CLIENT_ID is read from `vars` — store it as a repository (or
+#       org) configuration VARIABLE, not a secret (a non-sensitive identifier).
 # - Pushing the rebuilt bundle with the App token (rather than the default
 #   GITHUB_TOKEN) is what gives the new commit a fresh CI run and lets
 #   dependabot-auto-merge proceed; a GITHUB_TOKEN push would not re-trigger CI.
-# - CI_GH_APP_ID / CI_GH_APP_PRIVATE_KEY are placeholders — substitute the real
-#   lsst-sqre org App variable/secret names at provisioning time.
+# - CI_GH_APP_CLIENT_ID / CI_GH_APP_PRIVATE_KEY are the lsst-sqre org App
+#   variable/secret names, provisioned on this repository.
 
 permissions:
   contents: write
@@ -52,7 +54,7 @@ jobs:
         id: token
         uses: actions/create-github-app-token@v3
         with:
-          app-id: ${{ vars.CI_GH_APP_ID }}
+          client-id: ${{ vars.CI_GH_APP_CLIENT_ID }}
           private-key: ${{ secrets.CI_GH_APP_PRIVATE_KEY }}
 
       - name: Resolve App bot user id
