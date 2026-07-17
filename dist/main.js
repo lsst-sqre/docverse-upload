@@ -24954,7 +24954,7 @@ import { join } from "node:path";
 import { Transform } from "node:stream";
 import { pipeline } from "node:stream/promises";
 
-// node_modules/.pnpm/tar@7.5.19/node_modules/tar/dist/esm/index.min.js
+// node_modules/.pnpm/tar@7.5.20/node_modules/tar/dist/esm/index.min.js
 import Qr from "events";
 import I from "fs";
 import { EventEmitter as Di } from "node:events";
@@ -25017,7 +25017,7 @@ var _ = /* @__PURE__ */ Symbol("bufferLength");
 var bi = /* @__PURE__ */ Symbol("bufferPush");
 var Ie = /* @__PURE__ */ Symbol("bufferShift");
 var L = /* @__PURE__ */ Symbol("objectMode");
-var w = /* @__PURE__ */ Symbol("destroyed");
+var S = /* @__PURE__ */ Symbol("destroyed");
 var _i = /* @__PURE__ */ Symbol("error");
 var Oi = /* @__PURE__ */ Symbol("emitData");
 var Is = /* @__PURE__ */ Symbol("emitEnd");
@@ -25075,7 +25075,7 @@ var A = class extends Di {
   [Ne] = false;
   [qt] = null;
   [_] = 0;
-  [w] = false;
+  [S] = false;
   [Jt];
   [Ce] = false;
   [Rt] = 0;
@@ -25124,7 +25124,7 @@ var A = class extends Di {
   write(t, e, i) {
     if (this[Ce]) return false;
     if (this[Q]) throw new Error("write after end");
-    if (this[w]) return this.emit("error", Object.assign(new Error("Cannot call write after a stream was destroyed"), { code: "ERR_STREAM_DESTROYED" })), true;
+    if (this[S]) return this.emit("error", Object.assign(new Error("Cannot call write after a stream was destroyed"), { code: "ERR_STREAM_DESTROYED" })), true;
     typeof e == "function" && (i = e, e = "utf8"), e || (e = "utf8");
     let r = this[Z] ? jt : Yr;
     if (!this[L] && !Buffer.isBuffer(t)) {
@@ -25135,7 +25135,7 @@ var A = class extends Di {
     return this[L] ? (this[g] && this[_] !== 0 && this[Ae](true), this[g] ? this.emit("data", t) : this[bi](t), this[_] !== 0 && this.emit("readable"), i && r(i), this[g]) : t.length ? (typeof t == "string" && !(e === this[z] && !this[Mt]?.lastNeed) && (t = Buffer.from(t, e)), Buffer.isBuffer(t) && this[z] && (t = this[Mt].write(t)), this[g] && this[_] !== 0 && this[Ae](true), this[g] ? this.emit("data", t) : this[bi](t), this[_] !== 0 && this.emit("readable"), i && r(i), this[g]) : (this[_] !== 0 && this.emit("readable"), i && r(i), this[g]);
   }
   read(t) {
-    if (this[w]) return null;
+    if (this[S]) return null;
     if (this[C] = false, this[_] === 0 || t === 0 || t && t > this[_]) return this[J](), null;
     this[L] && (t = null), this[b].length > 1 && !this[L] && (this[b] = [this[z] ? this[b].join("") : Buffer.concat(this[b], this[_])]);
     let e = this[Ns](t || null, this[b][0]);
@@ -25153,7 +25153,7 @@ var A = class extends Di {
     return typeof t == "function" && (i = t, t = void 0), typeof e == "function" && (i = e, e = "utf8"), t !== void 0 && this.write(t, e), i && this.once("end", i), this[Q] = true, this.writable = false, (this[g] || !this[Qt]) && this[J](), this;
   }
   [Bt]() {
-    this[w] || (!this[Rt] && !this[N].length && (this[C] = true), this[Qt] = false, this[g] = true, this.emit("resume"), this[b].length ? this[Ae]() : this[Q] ? this[J]() : this.emit("drain"));
+    this[S] || (!this[Rt] && !this[N].length && (this[C] = true), this[Qt] = false, this[g] = true, this.emit("resume"), this[b].length ? this[Ae]() : this[Q] ? this[J]() : this.emit("drain"));
   }
   resume() {
     return this[Bt]();
@@ -25162,7 +25162,7 @@ var A = class extends Di {
     this[g] = false, this[Qt] = true, this[C] = false;
   }
   get destroyed() {
-    return this[w];
+    return this[S];
   }
   get flowing() {
     return this[g];
@@ -25186,7 +25186,7 @@ var A = class extends Di {
     return this.emit("data", t), this[g];
   }
   pipe(t, e) {
-    if (this[w]) return t;
+    if (this[S]) return t;
     this[C] = false;
     let i = this[nt];
     return e = e || {}, t === Ds.stdout || t === Ds.stderr ? e.end = false : e.end = e.end !== false, e.proxyErrors = !!e.proxyErrors, i ? e.end && t.end() : (this[N].push(e.proxyErrors ? new Li(this, t, e) : new Fe(this, t, e)), this[Z] ? jt(() => this[Bt]()) : this[Bt]()), t;
@@ -25224,15 +25224,15 @@ var A = class extends Di {
     return this[nt];
   }
   [J]() {
-    !this[De] && !this[nt] && !this[w] && this[b].length === 0 && this[Q] && (this[De] = true, this.emit("end"), this.emit("prefinish"), this.emit("finish"), this[Ne] && this.emit("close"), this[De] = false);
+    !this[De] && !this[nt] && !this[S] && this[b].length === 0 && this[Q] && (this[De] = true, this.emit("end"), this.emit("prefinish"), this.emit("finish"), this[Ne] && this.emit("close"), this[De] = false);
   }
   emit(t, ...e) {
     let i = e[0];
-    if (t !== "error" && t !== "close" && t !== w && this[w]) return false;
+    if (t !== "error" && t !== "close" && t !== S && this[S]) return false;
     if (t === "data") return !this[L] && !i ? false : this[Z] ? (jt(() => this[Oi](i)), true) : this[Oi](i);
     if (t === "end") return this[Is]();
     if (t === "close") {
-      if (this[Ne] = true, !this[nt] && !this[w]) return false;
+      if (this[Ne] = true, !this[nt] && !this[S]) return false;
       let n = super.emit("close");
       return this.removeAllListeners("close"), n;
     } else if (t === "error") {
@@ -25284,7 +25284,7 @@ var A = class extends Di {
   }
   async promise() {
     return new Promise((t, e) => {
-      this.on(w, () => e(new Error("stream destroyed"))), this.on("error", (i) => e(i)), this.on("end", () => t());
+      this.on(S, () => e(new Error("stream destroyed"))), this.on("error", (i) => e(i)), this.on("end", () => t());
     });
   }
   [Symbol.asyncIterator]() {
@@ -25296,14 +25296,14 @@ var A = class extends Di {
       if (r !== null) return Promise.resolve({ done: false, value: r });
       if (this[Q]) return e();
       let n, o, h = (d) => {
-        this.off("data", a), this.off("end", l), this.off(w, c), e(), o(d);
+        this.off("data", a), this.off("end", l), this.off(S, c), e(), o(d);
       }, a = (d) => {
-        this.off("error", h), this.off("end", l), this.off(w, c), this.pause(), n({ value: d, done: !!this[Q] });
+        this.off("error", h), this.off("end", l), this.off(S, c), this.pause(), n({ value: d, done: !!this[Q] });
       }, l = () => {
-        this.off("error", h), this.off("data", a), this.off(w, c), e(), n({ done: true, value: void 0 });
+        this.off("error", h), this.off("data", a), this.off(S, c), e(), n({ done: true, value: void 0 });
       }, c = () => h(new Error("stream destroyed"));
-      return new Promise((d, S) => {
-        o = S, n = d, this.once(w, c), this.once("error", h), this.once("end", l), this.once("data", a);
+      return new Promise((d, y) => {
+        o = y, n = d, this.once(S, c), this.once("error", h), this.once("end", l), this.once("data", a);
       });
     }, throw: e, return: e, [Symbol.asyncIterator]() {
       return this;
@@ -25312,21 +25312,21 @@ var A = class extends Di {
   }
   [Symbol.iterator]() {
     this[C] = false;
-    let t = false, e = () => (this.pause(), this.off(_i, e), this.off(w, e), this.off("end", e), t = true, { done: true, value: void 0 }), i = () => {
+    let t = false, e = () => (this.pause(), this.off(_i, e), this.off(S, e), this.off("end", e), t = true, { done: true, value: void 0 }), i = () => {
       if (t) return e();
       let r = this.read();
       return r === null ? e() : { done: false, value: r };
     };
-    return this.once("end", e), this.once(_i, e), this.once(w, e), { next: i, throw: e, return: e, [Symbol.iterator]() {
+    return this.once("end", e), this.once(_i, e), this.once(S, e), { next: i, throw: e, return: e, [Symbol.iterator]() {
       return this;
     }, [Symbol.dispose]: () => {
     } };
   }
   destroy(t) {
-    if (this[w]) return t ? this.emit("error", t) : this.emit(w), this;
-    this[w] = true, this[C] = true, this[b].length = 0, this[_] = 0;
+    if (this[S]) return t ? this.emit("error", t) : this.emit(S), this;
+    this[S] = true, this[C] = true, this[b].length = 0, this[_] = 0;
     let e = this;
-    return typeof e.close == "function" && !this[Ne] && e.close(), t ? this.emit("error", t) : this.emit(w), this;
+    return typeof e.close == "function" && !this[Ne] && e.close(), t ? this.emit("error", t) : this.emit(S), this;
   }
   static get isStream() {
     return Wr;
@@ -26077,7 +26077,7 @@ var st = /* @__PURE__ */ Symbol("queue");
 var mt = /* @__PURE__ */ Symbol("ended");
 var Yi = /* @__PURE__ */ Symbol("emittedEnd");
 var At = /* @__PURE__ */ Symbol("emit");
-var y = /* @__PURE__ */ Symbol("unzip");
+var w = /* @__PURE__ */ Symbol("unzip");
 var Xe = /* @__PURE__ */ Symbol("consumeChunk");
 var qe = /* @__PURE__ */ Symbol("consumeChunkSub");
 var Ki = /* @__PURE__ */ Symbol("consumeBody");
@@ -26117,7 +26117,7 @@ var rt = class extends Dn {
   [V];
   [he];
   [mt] = false;
-  [y];
+  [w];
   [$] = false;
   [It];
   [je] = false;
@@ -26227,7 +26227,13 @@ var rt = class extends Dn {
     }
   }
   abort(t) {
-    this[$] || (this[$] = true, this.emit("abort", t), this.warn("TAR_ABORT", t, { recoverable: false }));
+    if (!this[$]) {
+      if (this[w]) {
+        let e = this[w];
+        e.write = () => true, e.end = () => e, e.emit = () => false, e.destroy?.();
+      }
+      this[$] = true, this.emit("abort", t), this.warn("TAR_ABORT", t, { recoverable: false });
+    }
   }
   [Xs](t) {
     this[$i] += t.length;
@@ -26236,11 +26242,11 @@ var rt = class extends Dn {
   }
   write(t, e, i) {
     if (typeof e == "function" && (i = e, e = void 0), typeof t == "string" && (t = Buffer.from(t, typeof e == "string" ? e : "utf8")), this[$]) return i?.(), false;
-    if ((this[y] === void 0 || this.brotli === void 0 && this[y] === false) && t) {
+    if ((this[w] === void 0 || this.brotli === void 0 && this[w] === false) && t) {
       if (this[p] && (t = Buffer.concat([this[p], t]), this[p] = void 0), t.length < An) return this[p] = t, i?.(), true;
-      for (let a = 0; this[y] === void 0 && a < Xi.length; a++) t[a] !== Xi[a] && (this[y] = false);
+      for (let a = 0; this[w] === void 0 && a < Xi.length; a++) t[a] !== Xi[a] && (this[w] = false);
       let o = false;
-      if (this[y] === false && this.zstd !== false) {
+      if (this[w] === false && this.zstd !== false) {
         o = true;
         for (let a = 0; a < qi.length; a++) if (t[a] !== qi[a]) {
           o = false;
@@ -26248,27 +26254,27 @@ var rt = class extends Dn {
         }
       }
       let h = this.brotli === void 0 && !o;
-      if (this[y] === false && h) if (t.length < 512) if (this[mt]) this.brotli = true;
+      if (this[w] === false && h) if (t.length < 512) if (this[mt]) this.brotli = true;
       else return this[p] = t, i?.(), true;
       else try {
         new F(t.subarray(0, 512)), this.brotli = false;
       } catch {
         this.brotli = true;
       }
-      if (this[y] === void 0 || this[y] === false && (this.brotli || o)) {
+      if (this[w] === void 0 || this[w] === false && (this.brotli || o)) {
         let a = this[mt];
-        this[mt] = false, this[y] = this[y] === void 0 ? new Ue({}) : o ? new Ke({}) : new Ge({}), this[y].on("data", (c) => {
+        this[mt] = false, this[w] = this[w] === void 0 ? new Ue({}) : o ? new Ke({}) : new Ge({}), this[w].on("data", (c) => {
           this[Xs](c) && this[Xe](c);
-        }), this[y].on("error", (c) => {
+        }), this[w].on("error", (c) => {
           this[$] || this.abort(c);
-        }), this[y].on("end", () => {
+        }), this[w].on("end", () => {
           this[mt] = true, this[Xe]();
         }), this[Yt] = true, this[le] += t.length;
-        let l = !!this[y][a ? "end" : "write"](t);
+        let l = !!this[w][a ? "end" : "write"](t);
         return this[Yt] = false, i?.(), l;
       }
     }
-    this[Yt] = true, this[y] ? (this[le] += t.length, this[y].write(t)) : this[Xe](t), this[Yt] = false;
+    this[Yt] = true, this[w] ? (this[le] += t.length, this[w].write(t)) : this[Xe](t), this[Yt] = false;
     let n = this[st].length > 0 ? false : this[it] ? this[it].flowing : true;
     return !n && this[st].length === 0 && this[it]?.once("drain", () => this.emit("drain")), i?.(), n;
   }
@@ -26323,7 +26329,7 @@ var rt = class extends Dn {
     e < i && (this[p] = this[p] ? Buffer.concat([t.subarray(e), this[p]]) : t.subarray(e));
   }
   end(t, e, i) {
-    return typeof t == "function" && (i = t, e = void 0, t = void 0), typeof e == "function" && (i = e, e = void 0), typeof t == "string" && (t = Buffer.from(t, e)), i && this.once("finish", i), this[$] || (this[y] ? (t && (this[le] += t.length, this[y].write(t)), this[y].end()) : (this[mt] = true, (this.brotli === void 0 || this.zstd === void 0) && (t = t || Buffer.alloc(0)), t && this.write(t), this[Qe]())), this;
+    return typeof t == "function" && (i = t, e = void 0, t = void 0), typeof e == "function" && (i = e, e = void 0), typeof t == "string" && (t = Buffer.from(t, e)), i && this.once("finish", i), this[$] || (this[w] ? (t && (this[le] += t.length, this[w].write(t)), this[w].end()) : (this[mt] = true, (this.brotli === void 0 || this.zstd === void 0) && (t = t || Buffer.alloc(0)), t && this.write(t), this[Qe]())), this;
   }
 };
 var ut = (s3) => {
@@ -27212,13 +27218,13 @@ var no = (s3, t) => {
 };
 var gr = (s3, t, e) => {
   s3 = f(s3);
-  let i = t.umask ?? 18, r = t.mode | 448, n = (r & i) !== 0, o = t.uid, h = t.gid, a = typeof o == "number" && typeof h == "number" && (o !== t.processUid || h !== t.processGid), l = t.preserve, c = t.unlink, d = f(t.cwd), S = (E, x) => {
-    E ? e(E) : x && a ? Es(x, o, h, (Le) => S(Le)) : n ? k.chmod(s3, r, e) : e();
+  let i = t.umask ?? 18, r = t.mode | 448, n = (r & i) !== 0, o = t.uid, h = t.gid, a = typeof o == "number" && typeof h == "number" && (o !== t.processUid || h !== t.processGid), l = t.preserve, c = t.unlink, d = f(t.cwd), y = (E, x) => {
+    E ? e(E) : x && a ? Es(x, o, h, (Le) => y(Le)) : n ? k.chmod(s3, r, e) : e();
   };
-  if (s3 === d) return no(s3, S);
-  if (l) return ro.mkdir(s3, { mode: r, recursive: true }).then((E) => S(null, E ?? void 0), S);
+  if (s3 === d) return no(s3, y);
+  if (l) return ro.mkdir(s3, { mode: r, recursive: true }).then((E) => y(null, E ?? void 0), y);
   let D = f(Si.relative(d, s3)).split("/");
-  Ss(d, D, r, c, d, void 0, S);
+  Ss(d, D, r, c, d, void 0, y);
 };
 var Ss = (s3, t, e, i, r, n, o) => {
   if (t.length === 0) return o(null, n);
@@ -27528,12 +27534,12 @@ var Xt = class extends rt {
       if (typeof l == "number" && t.mtime && !this.noMtime) {
         n++;
         let c = t.atime || /* @__PURE__ */ new Date(), d = t.mtime;
-        m.futimes(l, c, d, (S) => S ? m.utimes(a, c, d, (T) => o(T && S)) : o());
+        m.futimes(l, c, d, (y) => y ? m.utimes(a, c, d, (T) => o(T && y)) : o());
       }
       if (typeof l == "number" && this[ge](t)) {
         n++;
         let c = this[be](t), d = this[_e](t);
-        typeof c == "number" && typeof d == "number" && m.fchown(l, c, d, (S) => S ? m.chown(a, c, d, (T) => o(T && S)) : o());
+        typeof c == "number" && typeof d == "number" && m.fchown(l, c, d, (y) => y ? m.chown(a, c, d, (T) => o(T && y)) : o());
       }
       o();
     });
@@ -27860,27 +27866,27 @@ var go = (s3, t) => {
       T ? v.close(n, (E) => h(T)) : h(null, D);
     }, l = 0;
     if (o === 0) return a(null, 0);
-    let c = 0, d = Buffer.alloc(512), S = (T, D) => {
+    let c = 0, d = Buffer.alloc(512), y = (T, D) => {
       if (T || D === void 0) return a(T);
-      if (c += D, c < 512 && D) return v.read(n, d, c, d.length - c, l + c, S);
+      if (c += D, c < 512 && D) return v.read(n, d, c, d.length - c, l + c, y);
       if (l === 0 && d[0] === 31 && d[1] === 139) return a(new Error("cannot append to compressed archives"));
       if (c < 512) return a(null, l);
       let E = new F(d);
       if (!E.cksumValid) return a(null, l);
       let x = 512 * Math.ceil((E.size ?? 0) / 512);
       if (l + x + 512 > o || (l += x + 512, l >= o)) return a(null, l);
-      s3.mtimeCache && E.mtime && s3.mtimeCache.set(String(E.path), E.mtime), c = 0, v.read(n, d, 0, 512, l, S);
+      s3.mtimeCache && E.mtime && s3.mtimeCache.set(String(E.path), E.mtime), c = 0, v.read(n, d, 0, 512, l, y);
     };
-    v.read(n, d, 0, 512, l, S);
+    v.read(n, d, 0, 512, l, y);
   };
   return new Promise((n, o) => {
     e.on("error", o);
     let h = "r+", a = (l, c) => {
       if (l && l.code === "ENOENT" && h === "r+") return h = "w+", v.open(s3.file, h, a);
       if (l || !c) return o(l);
-      v.fstat(c, (d, S) => {
+      v.fstat(c, (d, y) => {
         if (d) return v.close(c, () => o(d));
-        i(c, S.size, (T, D) => {
+        i(c, y.size, (T, D) => {
           if (T) return o(T);
           let E = new et(s3.file, { fd: c, start: D });
           e.pipe(E), E.on("error", o), E.on("close", n), _o(e, t);
