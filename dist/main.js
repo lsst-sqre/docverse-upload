@@ -24441,24 +24441,26 @@ var DocverseClient = class {
     return result;
   }
   /**
-   * Fetch the build-processing queue job by following the build's `queue_url`
-   * HATEOAS link. `queue_url` is minted server-side (via `request.url_for`) on
+   * Fetch the build-processing queue job by following the build's `job_url`
+   * HATEOAS link. `job_url` is minted server-side (via `request.url_for`) on
    * the same host the action just PATCHed, so it is always same-origin and the
    * Gafaelfawr bearer is attached. There is no reconstruction fallback here: a
-   * cross-origin or otherwise anomalous `queue_url` simply surfaces as a normal
+   * cross-origin or otherwise anomalous `job_url` simply surfaces as a normal
    * `ApiError` (cross-origin links are followed without the token, so the
    * server's auth check fails as expected).
    */
-  async getQueueJob(queueUrl) {
-    return this.followLink(queueUrl);
+  async getQueueJob(jobUrl) {
+    return this.followLink(jobUrl);
   }
-  /** Follow an absolute queue-job URL (e.g. a `queue_job_url` progress link). */
+  /** Follow an absolute queue-job URL (e.g. a `job_url` progress link). */
   async getQueueJobByUrl(url) {
     return this.followLink(url);
   }
   async getQueueJobById(jobId) {
     const result = await this.callApi(
-      () => this.client.GET("/queue/jobs/{job}", { params: { path: { job: jobId } } })
+      () => this.client.GET("/orgs/{org}/jobs/{job}", {
+        params: { path: { org: this.org, job: jobId } }
+      })
     );
     return result;
   }
@@ -24614,8 +24616,8 @@ function extractPublishJobs(job) {
       editionSlug: entry.edition_slug,
       jobId: entry.publish_queue_job_public_id
     };
-    if (typeof entry.queue_job_url === "string") {
-      ref.queueJobUrl = entry.queue_job_url;
+    if (typeof entry.job_url === "string") {
+      ref.jobUrl = entry.job_url;
     }
     return ref;
   }).filter(
@@ -24925,14 +24927,14 @@ async function pollJob(fetchJob, opts) {
     delay = Math.min(delay * BACKOFF_FACTOR, MAX_DELAY_MS);
   }
 }
-async function pollQueueJob(client, queueUrl, opts) {
-  return pollJob(() => client.getQueueJob(queueUrl), opts);
+async function pollQueueJob(client, jobUrl, opts) {
+  return pollJob(() => client.getQueueJob(jobUrl), opts);
 }
 async function pollPublishJobs(client, refs, opts) {
   return Promise.all(
     refs.map(
       (ref) => pollJob(
-        () => ref.queueJobUrl && client.isSameOrigin(ref.queueJobUrl) ? client.getQueueJobByUrl(ref.queueJobUrl) : client.getQueueJobById(ref.jobId),
+        () => ref.jobUrl && client.isSameOrigin(ref.jobUrl) ? client.getQueueJobByUrl(ref.jobUrl) : client.getQueueJobById(ref.jobId),
         opts
       ).then((job) => ({
         editionSlug: ref.editionSlug,
@@ -28000,14 +28002,14 @@ async function run() {
     await uploadTarball(build.upload_url, tarball.path);
     info("Tarball upload complete.");
     const patched = await client.completeUpload(build.id);
-    info(`Build ${patched.id} marked uploaded; queue url=${patched.queue_url ?? "<none>"}`);
+    info(`Build ${patched.id} marked uploaded; job url=${patched.job_url ?? "<none>"}`);
     const deadline = Date.now() + inputs.waitTimeoutMs;
     let finalJob = null;
     if (inputs.wait) {
-      if (!patched.queue_url) {
-        throw new Error(`Server did not return a queue_url for build ${patched.id}; cannot wait.`);
+      if (!patched.job_url) {
+        throw new Error(`Server did not return a job_url for build ${patched.id}; cannot wait.`);
       }
-      finalJob = await pollQueueJob(client, patched.queue_url, {
+      finalJob = await pollQueueJob(client, patched.job_url, {
         timeoutMs: inputs.waitTimeoutMs
       });
       info(`Queue job ${finalJob.id} reached terminal status ${finalJob.status}`);

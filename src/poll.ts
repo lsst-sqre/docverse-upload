@@ -72,13 +72,13 @@ export async function pollJob(
   }
 }
 
-/** Poll the build-processing queue job at `queueUrl` until terminal. */
+/** Poll the build-processing queue job at `jobUrl` until terminal. */
 export async function pollQueueJob(
   client: DocverseClient,
-  queueUrl: string,
+  jobUrl: string,
   opts: PollOptions,
 ): Promise<QueueJob> {
-  return pollJob(() => client.getQueueJob(queueUrl), opts);
+  return pollJob(() => client.getQueueJob(jobUrl), opts);
 }
 
 /**
@@ -86,11 +86,11 @@ export async function pollQueueJob(
  * job shares the same `opts` (in particular the remaining `timeoutMs` budget).
  * A `PollTimeoutError` from any job rejects the whole batch.
  *
- * Each job is fetched by following its `queue_job_url` HATEOAS link when the
+ * Each job is fetched by following its `job_url` HATEOAS link when the
  * server embedded one and it is same-origin with `base-url`; otherwise the
- * `/queue/jobs/{job}` path is reconstructed from the job id (the fallback for
- * servers that omit progress links, e.g. when Docverse is not registered in
- * Repertoire).
+ * org-scoped `/orgs/{org}/jobs/{job}` path is reconstructed from the job id
+ * (the fallback for servers that omit progress links, e.g. when Docverse is
+ * not registered in Repertoire).
  */
 export async function pollPublishJobs(
   client: DocverseClient,
@@ -101,8 +101,8 @@ export async function pollPublishJobs(
     refs.map((ref) =>
       pollJob(
         () =>
-          ref.queueJobUrl && client.isSameOrigin(ref.queueJobUrl)
-            ? client.getQueueJobByUrl(ref.queueJobUrl)
+          ref.jobUrl && client.isSameOrigin(ref.jobUrl)
+            ? client.getQueueJobByUrl(ref.jobUrl)
             : client.getQueueJobById(ref.jobId),
         opts,
       ).then((job) => ({

@@ -539,7 +539,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/orgs/{org}/keeper-sync/runs/{run_id}": {
+    "/orgs/{org}/keeper-sync/runs/{run}": {
         parameters: {
             query?: never;
             header?: never;
@@ -547,24 +547,7 @@ export interface paths {
             cookie?: never;
         };
         /** Get an LTD Keeper sync run with aggregate counters */
-        get: operations["get_org_keeper_sync_run_docverse_api_orgs__org__keeper_sync_runs__run_id__get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/orgs/{org}/keeper-sync/runs/{run_id}/jobs": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** List child queue jobs for an LTD Keeper sync run */
-        get: operations["get_org_keeper_sync_run_jobs_docverse_api_orgs__org__keeper_sync_runs__run_id__jobs_get"];
+        get: operations["get_org_keeper_sync_run_docverse_api_orgs__org__keeper_sync_runs__run__get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -590,7 +573,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/orgs/{org}/keeper-sync/tombstones/{state_id}": {
+    "/orgs/{org}/keeper-sync/tombstones/{tombstone}": {
         parameters: {
             query?: never;
             header?: never;
@@ -601,21 +584,43 @@ export interface paths {
         put?: never;
         post?: never;
         /** Clear a sync tombstone */
-        delete: operations["delete_org_keeper_sync_tombstone_docverse_api_orgs__org__keeper_sync_tombstones__state_id__delete"];
+        delete: operations["delete_org_keeper_sync_tombstone_docverse_api_orgs__org__keeper_sync_tombstones__tombstone__delete"];
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/queue/jobs/{job}": {
+    "/orgs/{org}/jobs": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /** Get a queue job */
-        get: operations["get_queue_job_docverse_api_queue_jobs__job__get"];
+        /** List jobs */
+        get: operations["get_org_jobs_docverse_api_orgs__org__jobs_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/orgs/{org}/jobs/{job}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get a job
+         * @description Return the current state of a single background job.
+         *
+         *     A companion subresource, ``GET /orgs/{org}/jobs/{job}/events``, is **reserved** for a future ``text/event-stream`` (SSE) endpoint that streams live status updates for this job. It is documented here so clients can anticipate the path, but it is not yet implemented and currently returns ``404``. A dedicated subresource is used rather than a query parameter such as ``?sse=true`` because switching the response media type on a query parameter conflates the resource with its representation, and a browser ``EventSource`` cannot set an ``Accept`` header.
+         */
+        get: operations["get_org_job_docverse_api_orgs__org__jobs__job__get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -713,10 +718,10 @@ export interface components {
              */
             upload_url?: string | null;
             /**
-             * Queue Url
-             * @description URL to the queue job processing this build.
+             * Job Url
+             * @description URL to the job processing this build.
              */
-            queue_url?: string | null;
+            job_url?: string | null;
             /**
              * Object Count
              * @description Number of objects in the build.
@@ -1030,15 +1035,15 @@ export interface components {
          */
         DashboardRebuildResponse: {
             /**
-             * Queue Job Id
+             * Job Id
              * @description Public Base32 identifier for the enqueued job.
              */
-            queue_job_id: string;
+            job_id: string;
             /**
-             * Queue Job Url
-             * @description URL to the enqueued queue job resource.
+             * Job Url
+             * @description URL to the enqueued job resource.
              */
-            queue_job_url: string;
+            job_url: string;
         };
         /**
          * DashboardTemplateBindingCreate
@@ -1118,10 +1123,10 @@ export interface components {
              */
             last_sync_error?: string | null;
             /**
-             * Last Sync Queue Job Url
-             * @description URL of the most-recently-enqueued ``dashboard_sync`` queue job, or ``None`` if no sync has been enqueued for this binding yet (or the referenced job has been pruned).
+             * Last Sync Job Url
+             * @description URL of the most-recently-enqueued ``dashboard_sync`` job, or ``None`` if no sync has been enqueued for this binding yet (or the referenced job has been pruned).
              */
-            last_sync_queue_job_url?: string | null;
+            last_sync_job_url?: string | null;
             /**
              * Github Owner Id
              * @description GitHub's stable numeric ID for the owner. Captured on first successful sync; ``None`` for un-synced bindings. Informational only — the public API remains keyed on ``github_owner``.
@@ -1156,20 +1161,15 @@ export interface components {
          */
         DashboardTemplateSyncEnqueuedResponse: {
             /**
-             * Binding Id
-             * @description ID of the binding that was synced.
-             */
-            binding_id: number;
-            /**
-             * Queue Job Id
+             * Job Id
              * @description Base32 public ID of the enqueued ``dashboard_sync`` job.
              */
-            queue_job_id: string;
+            job_id: string;
             /**
-             * Queue Job Url
-             * @description URL of the enqueued ``dashboard_sync`` queue job.
+             * Job Url
+             * @description URL of the enqueued ``dashboard_sync`` job.
              */
-            queue_job_url: string;
+            job_url: string;
         };
         /**
          * DefaultEditionConfig
@@ -1561,16 +1561,16 @@ export interface components {
          */
         KeeperSyncProjectRefreshAccepted: {
             /**
-             * Queue Job Id
+             * Job Id
              * @description Public Base32 identifier for the enqueued ``keeper_sync_project`` queue job.
              */
-            queue_job_id: string;
+            job_id: string;
             /**
-             * Queue Job Url
+             * Job Url
              * Format: uri
-             * @description URL of the enqueued queue job resource.
+             * @description URL of the enqueued job resource.
              */
-            queue_job_url: string;
+            job_url: string;
         };
         /**
          * KeeperSyncProjectStateSummary
@@ -1675,16 +1675,16 @@ export interface components {
             /** @description The newly created run. */
             run: components["schemas"]["docverse__client__models__keeper_sync__KeeperSyncRun"];
             /**
-             * Queue Job Id
+             * Job Id
              * @description Public Base32 identifier for the enqueued ``keeper_sync_run_discovery`` queue job.
              */
-            queue_job_id: string;
+            job_id: string;
             /**
-             * Queue Job Url
+             * Job Url
              * Format: uri
-             * @description URL of the enqueued discovery queue job resource.
+             * @description URL of the enqueued discovery job resource.
              */
-            queue_job_url: string;
+            job_url: string;
         };
         /**
          * KeeperSyncRunKind
@@ -1748,10 +1748,10 @@ export interface components {
              */
             self_url: string;
             /**
-             * State Id
-             * @description Primary key of the underlying ``keeper_sync_state`` row. Use this id with the DELETE endpoint to clear the tombstone.
+             * Id
+             * @description Public Crockford Base32 identifier for the tombstoned ``keeper_sync_state`` row. Use this id with the DELETE endpoint to clear the tombstone.
              */
-            state_id: number;
+            id: string;
             /** @description LTD resource type the tombstone applies to. ``project`` vetoes re-import of the LTD product entirely; ``edition`` vetoes one specific LTD edition; ``build`` is reserved (no caller writes build-level tombstones today). */
             resource_type: components["schemas"]["KeeperSyncResourceType"];
             /**
@@ -1838,15 +1838,15 @@ export interface components {
              */
             project_slug: string;
             /**
-             * Queue Job Id
+             * Job Id
              * @description Public Base32 identifier for the enqueued job.
              */
-            queue_job_id: string;
+            job_id: string;
             /**
-             * Queue Job Url
-             * @description URL to the enqueued queue job resource.
+             * Job Url
+             * @description URL to the enqueued job resource.
              */
-            queue_job_url: string;
+            job_url: string;
         };
         /**
          * OrgMembership
@@ -2406,10 +2406,10 @@ export interface components {
              */
             publish_queue_job_public_id?: string | null;
             /**
-             * Queue Job Url
-             * @description Absolute URL of the publish_edition queue-job resource (a HATEOAS link clients follow instead of reconstructing the path). Omitted when the Docverse API base URL could not be resolved.
+             * Job Url
+             * @description Absolute URL of the publish_edition job resource (a HATEOAS link clients follow instead of reconstructing the path). Omitted when the Docverse API base URL could not be resolved.
              */
-            queue_job_url?: string | null;
+            job_url?: string | null;
         } & {
             [key: string]: unknown;
         };
@@ -2439,9 +2439,9 @@ export interface components {
             status: components["schemas"]["JobStatus"];
             /**
              * Keeper Sync Run Id
-             * @description Identifier of the keeper-sync run this job is attributed to, or ``null`` for jobs not part of a run.
+             * @description Public Crockford Base32 identifier of the keeper-sync run this job is attributed to, or ``null`` for jobs not part of a run.
              */
-            keeper_sync_run_id?: number | null;
+            keeper_sync_run_id?: string | null;
             /**
              * Subject Label
              * @description Human-readable identifier for the resource this job targets (e.g. an LTD slug for keeper-sync project jobs).
@@ -2727,14 +2727,14 @@ export interface components {
             /**
              * Jobs Url
              * Format: uri
-             * @description URL to ``GET`` for the run's child queue-job listing (``get_org_keeper_sync_run_jobs``). Always present so clients can paginate the run's children without constructing the URL by hand.
+             * @description URL to ``GET`` for the run's child queue-job listing (the org-scoped jobs collection filtered to this run, ``GET /orgs/{org}/jobs?run={id}``). Always present so clients can paginate the run's children without constructing the URL by hand.
              */
             jobs_url: string;
             /**
              * Id
-             * @description Numeric identifier for the run.
+             * @description Public Crockford Base32 identifier for the run.
              */
-            id: number;
+            id: string;
             /** @description Kind of run. */
             kind: components["schemas"]["KeeperSyncRunKind"];
             /** @description Lifecycle status. */
@@ -2905,14 +2905,14 @@ export interface components {
             /**
              * Jobs Url
              * Format: uri
-             * @description URL to ``GET`` for the run's child queue-job listing (``get_org_keeper_sync_run_jobs``). Always present so clients can paginate the run's children without constructing the URL by hand.
+             * @description URL to ``GET`` for the run's child queue-job listing (the org-scoped jobs collection filtered to this run, ``GET /orgs/{org}/jobs?run={id}``). Always present so clients can paginate the run's children without constructing the URL by hand.
              */
             jobs_url: string;
             /**
              * Id
-             * @description Numeric identifier for the run.
+             * @description Public Crockford Base32 identifier for the run.
              */
-            id: number;
+            id: string;
             /** @description Kind of run. */
             kind: components["schemas"]["KeeperSyncRunKind"];
             /** @description Lifecycle status. */
@@ -5052,15 +5052,15 @@ export interface operations {
             };
         };
     };
-    get_org_keeper_sync_run_docverse_api_orgs__org__keeper_sync_runs__run_id__get: {
+    get_org_keeper_sync_run_docverse_api_orgs__org__keeper_sync_runs__run__get: {
         parameters: {
             query?: never;
             header?: never;
             path: {
                 /** @description Organization slug. */
                 org: string;
-                /** @description Numeric identifier for the run. */
-                run_id: number;
+                /** @description Base32-encoded keeper-sync run identifier. */
+                run: string;
             };
             cookie?: never;
         };
@@ -5073,47 +5073,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["docverse__handlers__orgs__keeper_sync_models__KeeperSyncRun"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    get_org_keeper_sync_run_jobs_docverse_api_orgs__org__keeper_sync_runs__run_id__jobs_get: {
-        parameters: {
-            query?: {
-                /** @description Opaque pagination cursor from a previous response's ``Link`` header. */
-                cursor?: string | null;
-                /** @description Maximum number of results per page. */
-                limit?: number;
-                /** @description Filter jobs by status. */
-                status?: components["schemas"]["JobStatus"] | null;
-            };
-            header?: never;
-            path: {
-                /** @description Organization slug. */
-                org: string;
-                /** @description Numeric identifier for the run. */
-                run_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["QueueJob"][];
                 };
             };
             /** @description Validation Error */
@@ -5168,15 +5127,15 @@ export interface operations {
             };
         };
     };
-    delete_org_keeper_sync_tombstone_docverse_api_orgs__org__keeper_sync_tombstones__state_id__delete: {
+    delete_org_keeper_sync_tombstone_docverse_api_orgs__org__keeper_sync_tombstones__tombstone__delete: {
         parameters: {
             query?: never;
             header?: never;
             path: {
                 /** @description Organization slug. */
                 org: string;
-                /** @description Primary key of the keeper_sync_state row. */
-                state_id: number;
+                /** @description Base32-encoded keeper-sync tombstone identifier. */
+                tombstone: string;
             };
             cookie?: never;
         };
@@ -5200,11 +5159,58 @@ export interface operations {
             };
         };
     };
-    get_queue_job_docverse_api_queue_jobs__job__get: {
+    get_org_jobs_docverse_api_orgs__org__jobs_get: {
+        parameters: {
+            query?: {
+                /** @description Opaque pagination cursor from a previous response's ``Link`` header. */
+                cursor?: string | null;
+                /** @description Maximum number of results per page. */
+                limit?: number;
+                /** @description Filter jobs by kind. */
+                kind?: components["schemas"]["JobKind"] | null;
+                /** @description Filter jobs by status. */
+                status?: components["schemas"]["JobStatus"] | null;
+                /** @description Filter jobs by target project slug. */
+                project?: string | null;
+                /** @description Filter jobs by attributed keeper-sync run (Base32 public identifier). */
+                run?: string | null;
+            };
+            header?: never;
+            path: {
+                /** @description Organization slug. */
+                org: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["QueueJob"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_org_job_docverse_api_orgs__org__jobs__job__get: {
         parameters: {
             query?: never;
             header?: never;
             path: {
+                /** @description Organization slug. */
+                org: string;
                 /** @description Base32-encoded queue job identifier. */
                 job: string;
             };

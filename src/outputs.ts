@@ -13,10 +13,11 @@ export interface PublishJobRef {
   editionSlug: string;
   jobId: string;
   /**
-   * Absolute `queue_job_url` HATEOAS link to the publish job, when the server
-   * embedded it. Followed in preference to reconstructing `/queue/jobs/{id}`.
+   * Absolute `job_url` HATEOAS link to the publish job, when the server
+   * embedded it. Followed in preference to reconstructing
+   * `/orgs/{org}/jobs/{job}`.
    */
-  queueJobUrl?: string;
+  jobUrl?: string;
 }
 
 /** An edition updated by this build (`progress.editions_updated`). */
@@ -114,7 +115,7 @@ export function extractSkippedSlugs(job: QueueJob | null): string[] {
  * Pull the `publish_edition` job references out of the build job's progress
  * payload (`progress.publish_jobs[]`), mapping `edition_slug`→`editionSlug`,
  * `publish_queue_job_public_id`→`jobId`, and (when present as a string) the
- * `queue_job_url`→`queueJobUrl` HATEOAS link. `progress` is typed
+ * `job_url`→`jobUrl` HATEOAS link. `progress` is typed
  * `object | null` in OpenAPI, so we normalize defensively (drop entries missing
  * either required string).
  */
@@ -128,12 +129,12 @@ export function extractPublishJobs(job: QueueJob | null): PublishJobRef[] {
       (entry): entry is Record<string, unknown> => typeof entry === 'object' && entry !== null,
     )
     .map((entry) => {
-      const ref: { editionSlug: unknown; jobId: unknown; queueJobUrl?: string } = {
+      const ref: { editionSlug: unknown; jobId: unknown; jobUrl?: string } = {
         editionSlug: entry.edition_slug,
         jobId: entry.publish_queue_job_public_id,
       };
-      if (typeof entry.queue_job_url === 'string') {
-        ref.queueJobUrl = entry.queue_job_url;
+      if (typeof entry.job_url === 'string') {
+        ref.jobUrl = entry.job_url;
       }
       return ref;
     })

@@ -50,17 +50,17 @@ export async function run(): Promise<void> {
     core.info('Tarball upload complete.');
 
     const patched = await client.completeUpload(build.id);
-    core.info(`Build ${patched.id} marked uploaded; queue url=${patched.queue_url ?? '<none>'}`);
+    core.info(`Build ${patched.id} marked uploaded; job url=${patched.job_url ?? '<none>'}`);
 
     // Shared budget for build polling and the subsequent publish wait.
     const deadline = Date.now() + inputs.waitTimeoutMs;
 
     let finalJob: QueueJob | null = null;
     if (inputs.wait) {
-      if (!patched.queue_url) {
-        throw new Error(`Server did not return a queue_url for build ${patched.id}; cannot wait.`);
+      if (!patched.job_url) {
+        throw new Error(`Server did not return a job_url for build ${patched.id}; cannot wait.`);
       }
-      finalJob = await pollQueueJob(client, patched.queue_url, {
+      finalJob = await pollQueueJob(client, patched.job_url, {
         timeoutMs: inputs.waitTimeoutMs,
       });
       core.info(`Queue job ${finalJob.id} reached terminal status ${finalJob.status}`);

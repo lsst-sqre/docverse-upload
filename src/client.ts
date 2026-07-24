@@ -85,26 +85,28 @@ export class DocverseClient {
   }
 
   /**
-   * Fetch the build-processing queue job by following the build's `queue_url`
-   * HATEOAS link. `queue_url` is minted server-side (via `request.url_for`) on
+   * Fetch the build-processing queue job by following the build's `job_url`
+   * HATEOAS link. `job_url` is minted server-side (via `request.url_for`) on
    * the same host the action just PATCHed, so it is always same-origin and the
    * Gafaelfawr bearer is attached. There is no reconstruction fallback here: a
-   * cross-origin or otherwise anomalous `queue_url` simply surfaces as a normal
+   * cross-origin or otherwise anomalous `job_url` simply surfaces as a normal
    * `ApiError` (cross-origin links are followed without the token, so the
    * server's auth check fails as expected).
    */
-  async getQueueJob(queueUrl: string): Promise<QueueJob> {
-    return this.followLink<QueueJob>(queueUrl);
+  async getQueueJob(jobUrl: string): Promise<QueueJob> {
+    return this.followLink<QueueJob>(jobUrl);
   }
 
-  /** Follow an absolute queue-job URL (e.g. a `queue_job_url` progress link). */
+  /** Follow an absolute queue-job URL (e.g. a `job_url` progress link). */
   async getQueueJobByUrl(url: string): Promise<QueueJob> {
     return this.followLink<QueueJob>(url);
   }
 
   async getQueueJobById(jobId: string): Promise<QueueJob> {
     const result = await this.callApi(() =>
-      this.client.GET('/queue/jobs/{job}', { params: { path: { job: jobId } } }),
+      this.client.GET('/orgs/{org}/jobs/{job}', {
+        params: { path: { org: this.org, job: jobId } },
+      }),
     );
     return result as QueueJob;
   }

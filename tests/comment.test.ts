@@ -34,7 +34,7 @@ function makeBuild(overrides: Partial<Build> = {}): Build {
     content_hash: `sha256:${'0'.repeat(64)}`,
     status: 'completed',
     upload_url: null,
-    queue_url: null,
+    job_url: null,
     object_count: 3,
     total_size_bytes: 1024,
     uploader: 'tester',
@@ -48,7 +48,7 @@ function makeBuild(overrides: Partial<Build> = {}): Build {
 
 function makeJob(overrides: Partial<QueueJob> = {}): QueueJob {
   return {
-    self_url: 'https://example.test/docverse/api/queue/jobs/J',
+    self_url: 'https://example.test/docverse/api/orgs/rubin/jobs/J',
     id: 'J',
     kind: 'build_processing',
     status: 'completed',
