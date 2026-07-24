@@ -36,7 +36,7 @@ function buildResource(overrides: Record<string, unknown> = {}) {
     content_hash: 'sha256:0'.padEnd(7 + 64, '0'),
     status: 'pending',
     upload_url: `${UPLOAD_HOST}/upload/B1?signature=abc`,
-    queue_url: null,
+    job_url: null,
     object_count: null,
     total_size_bytes: null,
     uploader: 'tester',
@@ -50,7 +50,7 @@ function buildResource(overrides: Record<string, unknown> = {}) {
 
 function queueJob(overrides: Record<string, unknown> = {}) {
   return {
-    self_url: `${BASE_URL}/queue/jobs/qbk8-g75d-s0h1-97`,
+    self_url: `${BASE_URL}/orgs/rubin/jobs/qbk8-g75d-s0h1-97`,
     id: 'qbk8-g75d-s0h1-97',
     kind: 'build_processing',
     status: 'completed',
@@ -99,7 +99,7 @@ describe('upload flow', () => {
     let editionAuth = '';
 
     const editionUrl = `${BASE_URL}/orgs/rubin/projects/docs/editions/main`;
-    const publishJobUrl = `${BASE_URL}/queue/jobs/whgn-wnz2-tvyx-05`;
+    const publishJobUrl = `${BASE_URL}/orgs/rubin/jobs/whgn-wnz2-tvyx-05`;
 
     server.use(
       http.post(`${BASE_URL}/orgs/:org/projects/:project/builds`, async ({ request }) => {
@@ -115,17 +115,17 @@ describe('upload flow', () => {
         return HttpResponse.json(
           buildResource({
             status: 'uploaded',
-            queue_url: `${BASE_URL}/queue/jobs/qbk8-g75d-s0h1-97`,
+            job_url: `${BASE_URL}/orgs/rubin/jobs/qbk8-g75d-s0h1-97`,
           }),
         );
       }),
-      http.get(`${BASE_URL}/queue/jobs/:job`, ({ request, params }) => {
+      http.get(`${BASE_URL}/orgs/:org/jobs/:job`, ({ request, params }) => {
         const id = params.job as string;
         queueAuth[id] = request.headers.get('authorization') ?? '';
         return HttpResponse.json(
           queueJob({
             id,
-            self_url: `${BASE_URL}/queue/jobs/${id}`,
+            self_url: `${BASE_URL}/orgs/rubin/jobs/${id}`,
             phase: 'complete',
             progress: {
               message: 'Build processing complete',
@@ -135,7 +135,7 @@ describe('upload flow', () => {
                 {
                   edition_slug: 'main',
                   publish_queue_job_public_id: 'whgn-wnz2-tvyx-05',
-                  queue_job_url: publishJobUrl,
+                  job_url: publishJobUrl,
                 },
               ],
             },
@@ -168,30 +168,30 @@ describe('upload flow', () => {
     expect(putHeader).toBeNull();
 
     const patched = await client.completeUpload(build.id);
-    expect(patched.queue_url).toContain('/queue/jobs/qbk8-g75d-s0h1-97');
+    expect(patched.job_url).toContain('/orgs/rubin/jobs/qbk8-g75d-s0h1-97');
     expect(patchBody).toEqual({ status: 'uploaded' });
 
-    const job = await pollQueueJob(client, patched.queue_url!, {
+    const job = await pollQueueJob(client, patched.job_url!, {
       timeoutMs: 60_000,
       sleep: async () => {},
       random: () => 0,
       now: () => 0,
     });
     expect(job.status).toBe('completed');
-    // The build's queue_url was followed with the bearer token (same-origin).
+    // The build's job_url was followed with the bearer token (same-origin).
     expect(queueAuth['qbk8-g75d-s0h1-97']).toBe('Bearer gt-test');
 
     // Follow the HATEOAS links embedded in the progress payload end-to-end.
     const [editionRef] = extractUpdatedEditions(job);
     const [publishRef] = extractPublishJobs(job);
     expect(editionRef?.editionUrl).toBe(editionUrl);
-    expect(publishRef?.queueJobUrl).toBe(publishJobUrl);
+    expect(publishRef?.jobUrl).toBe(publishJobUrl);
 
     const edition = await client.getEditionByUrl(editionRef!.editionUrl!);
     expect(edition.slug).toBe('main');
     expect(editionAuth).toBe('Bearer gt-test');
 
-    const publishJob = await client.getQueueJobByUrl(publishRef!.queueJobUrl!);
+    const publishJob = await client.getQueueJobByUrl(publishRef!.jobUrl!);
     expect(publishJob.id).toBe('whgn-wnz2-tvyx-05');
     expect(queueAuth['whgn-wnz2-tvyx-05']).toBe('Bearer gt-test');
   });
@@ -225,13 +225,15 @@ describe('upload flow', () => {
   });
 
   it('fetches a queue job by id (publish_edition jobs)', async () => {
+    let requestedOrg = '';
     let requestedJob = '';
     server.use(
-      http.get(`${BASE_URL}/queue/jobs/:job`, ({ params }) => {
+      http.get(`${BASE_URL}/orgs/:org/jobs/:job`, ({ params }) => {
+        requestedOrg = params.org as string;
         requestedJob = params.job as string;
         return HttpResponse.json(
           queueJob({
-            self_url: `${BASE_URL}/queue/jobs/whgn-wnz2-tvyx-05`,
+            self_url: `${BASE_URL}/orgs/rubin/jobs/whgn-wnz2-tvyx-05`,
             id: 'whgn-wnz2-tvyx-05',
             kind: 'publish_edition',
             status: 'completed',
@@ -242,6 +244,7 @@ describe('upload flow', () => {
     );
     const client = new DocverseClient(BASE_URL, 'gt', 'rubin', 'docs');
     const job = await client.getQueueJobById('whgn-wnz2-tvyx-05');
+    expect(requestedOrg).toBe('rubin');
     expect(requestedJob).toBe('whgn-wnz2-tvyx-05');
     expect(job.id).toBe('whgn-wnz2-tvyx-05');
     expect(job.status).toBe('completed');
@@ -251,25 +254,28 @@ describe('upload flow', () => {
     const CROSS = 'https://other.example.test';
     let authHeader: string | null = 'unset';
     server.use(
-      http.get(`${CROSS}/queue/jobs/:job`, ({ request, params }) => {
+      http.get(`${CROSS}/orgs/:org/jobs/:job`, ({ request, params }) => {
         authHeader = request.headers.get('authorization');
         return HttpResponse.json(
-          queueJob({ id: params.job as string, self_url: `${CROSS}/queue/jobs/${params.job}` }),
+          queueJob({
+            id: params.job as string,
+            self_url: `${CROSS}/orgs/rubin/jobs/${params.job}`,
+          }),
         );
       }),
     );
     const client = new DocverseClient(BASE_URL, 'gt-secret', 'rubin', 'docs');
-    const job = await client.getQueueJobByUrl(`${CROSS}/queue/jobs/abcd`);
+    const job = await client.getQueueJobByUrl(`${CROSS}/orgs/rubin/jobs/abcd`);
     expect(job.id).toBe('abcd');
     expect(authHeader).toBeNull();
   });
 
   it('maps a network error on a followed link to NetworkError', async () => {
-    server.use(http.get(`${BASE_URL}/queue/jobs/:job`, () => HttpResponse.error()));
+    server.use(http.get(`${BASE_URL}/orgs/:org/jobs/:job`, () => HttpResponse.error()));
     const client = new DocverseClient(BASE_URL, 'gt', 'rubin', 'docs');
-    await expect(client.getQueueJobByUrl(`${BASE_URL}/queue/jobs/abcd`)).rejects.toBeInstanceOf(
-      NetworkError,
-    );
+    await expect(
+      client.getQueueJobByUrl(`${BASE_URL}/orgs/rubin/jobs/abcd`),
+    ).rejects.toBeInstanceOf(NetworkError);
   });
 
   it('reads the error body of a 404 from a followed link (unread-body invariant)', async () => {

@@ -3,7 +3,7 @@
   "info": {
     "title": "Docverse",
     "description": "Docverse documentation hosting platform server.",
-    "version": "0.0.1.dev1+g02e6650eb.d20260606"
+    "version": "0.0.1.dev1+g709f091e0.d20260724"
   },
   "paths": {
     "/admin/orgs": {
@@ -3245,13 +3245,13 @@
         }
       }
     },
-    "/orgs/{org}/keeper-sync/runs/{run_id}": {
+    "/orgs/{org}/keeper-sync/runs/{run}": {
       "get": {
         "tags": [
           "orgs"
         ],
         "summary": "Get an LTD Keeper sync run with aggregate counters",
-        "operationId": "get_org_keeper_sync_run_docverse_api_orgs__org__keeper_sync_runs__run_id__get",
+        "operationId": "get_org_keeper_sync_run_docverse_api_orgs__org__keeper_sync_runs__run__get",
         "parameters": [
           {
             "name": "org",
@@ -3265,15 +3265,15 @@
             "description": "Organization slug."
           },
           {
-            "name": "run_id",
+            "name": "run",
             "in": "path",
             "required": true,
             "schema": {
-              "type": "integer",
-              "description": "Numeric identifier for the run.",
-              "title": "Run Id"
+              "type": "string",
+              "description": "Base32-encoded keeper-sync run identifier.",
+              "title": "Run"
             },
-            "description": "Numeric identifier for the run."
+            "description": "Base32-encoded keeper-sync run identifier."
           }
         ],
         "responses": {
@@ -3283,115 +3283,6 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/docverse__handlers__orgs__keeper_sync_models__KeeperSyncRun"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/orgs/{org}/keeper-sync/runs/{run_id}/jobs": {
-      "get": {
-        "tags": [
-          "orgs"
-        ],
-        "summary": "List child queue jobs for an LTD Keeper sync run",
-        "operationId": "get_org_keeper_sync_run_jobs_docverse_api_orgs__org__keeper_sync_runs__run_id__jobs_get",
-        "parameters": [
-          {
-            "name": "org",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "description": "Organization slug.",
-              "title": "Org"
-            },
-            "description": "Organization slug."
-          },
-          {
-            "name": "run_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "integer",
-              "description": "Numeric identifier for the run.",
-              "title": "Run Id"
-            },
-            "description": "Numeric identifier for the run."
-          },
-          {
-            "name": "cursor",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "description": "Opaque pagination cursor from a previous response's ``Link`` header.",
-              "title": "Cursor"
-            },
-            "description": "Opaque pagination cursor from a previous response's ``Link`` header."
-          },
-          {
-            "name": "limit",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "integer",
-              "maximum": 100,
-              "minimum": 1,
-              "description": "Maximum number of results per page.",
-              "default": 25,
-              "title": "Limit"
-            },
-            "description": "Maximum number of results per page."
-          },
-          {
-            "name": "status",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "$ref": "#/components/schemas/JobStatus"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "description": "Filter jobs by status.",
-              "title": "Status"
-            },
-            "description": "Filter jobs by status."
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/QueueJob"
-                  },
-                  "title": "Response Get Org Keeper Sync Run Jobs Docverse Api Orgs  Org  Keeper Sync Runs  Run Id  Jobs Get"
                 }
               }
             }
@@ -3525,13 +3416,13 @@
         }
       }
     },
-    "/orgs/{org}/keeper-sync/tombstones/{state_id}": {
+    "/orgs/{org}/keeper-sync/tombstones/{tombstone}": {
       "delete": {
         "tags": [
           "orgs"
         ],
         "summary": "Clear a sync tombstone",
-        "operationId": "delete_org_keeper_sync_tombstone_docverse_api_orgs__org__keeper_sync_tombstones__state_id__delete",
+        "operationId": "delete_org_keeper_sync_tombstone_docverse_api_orgs__org__keeper_sync_tombstones__tombstone__delete",
         "parameters": [
           {
             "name": "org",
@@ -3545,15 +3436,15 @@
             "description": "Organization slug."
           },
           {
-            "name": "state_id",
+            "name": "tombstone",
             "in": "path",
             "required": true,
             "schema": {
-              "type": "integer",
-              "description": "Primary key of the keeper_sync_state row.",
-              "title": "State Id"
+              "type": "string",
+              "description": "Base32-encoded keeper-sync tombstone identifier.",
+              "title": "Tombstone"
             },
-            "description": "Primary key of the keeper_sync_state row."
+            "description": "Base32-encoded keeper-sync tombstone identifier."
           }
         ],
         "responses": {
@@ -3573,14 +3464,178 @@
         }
       }
     },
-    "/queue/jobs/{job}": {
+    "/orgs/{org}/jobs": {
       "get": {
         "tags": [
-          "queue"
+          "jobs"
         ],
-        "summary": "Get a queue job",
-        "operationId": "get_queue_job_docverse_api_queue_jobs__job__get",
+        "summary": "List jobs",
+        "operationId": "get_org_jobs_docverse_api_orgs__org__jobs_get",
         "parameters": [
+          {
+            "name": "org",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "Organization slug.",
+              "title": "Org"
+            },
+            "description": "Organization slug."
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Opaque pagination cursor from a previous response's ``Link`` header.",
+              "title": "Cursor"
+            },
+            "description": "Opaque pagination cursor from a previous response's ``Link`` header."
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "description": "Maximum number of results per page.",
+              "default": 25,
+              "title": "Limit"
+            },
+            "description": "Maximum number of results per page."
+          },
+          {
+            "name": "kind",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/JobKind"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter jobs by kind.",
+              "title": "Kind"
+            },
+            "description": "Filter jobs by kind."
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/JobStatus"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter jobs by status.",
+              "title": "Status"
+            },
+            "description": "Filter jobs by status."
+          },
+          {
+            "name": "project",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter jobs by target project slug.",
+              "title": "Project"
+            },
+            "description": "Filter jobs by target project slug."
+          },
+          {
+            "name": "run",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter jobs by attributed keeper-sync run (Base32 public identifier).",
+              "title": "Run"
+            },
+            "description": "Filter jobs by attributed keeper-sync run (Base32 public identifier)."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/QueueJob"
+                  },
+                  "title": "Response Get Org Jobs Docverse Api Orgs  Org  Jobs Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/orgs/{org}/jobs/{job}": {
+      "get": {
+        "tags": [
+          "jobs"
+        ],
+        "summary": "Get a job",
+        "description": "Return the current state of a single background job.\n\nA companion subresource, ``GET /orgs/{org}/jobs/{job}/events``, is **reserved** for a future ``text/event-stream`` (SSE) endpoint that streams live status updates for this job. It is documented here so clients can anticipate the path, but it is not yet implemented and currently returns ``404``. A dedicated subresource is used rather than a query parameter such as ``?sse=true`` because switching the response media type on a query parameter conflates the resource with its representation, and a browser ``EventSource`` cannot set an ``Accept`` header.",
+        "operationId": "get_org_job_docverse_api_orgs__org__jobs__job__get",
+        "parameters": [
+          {
+            "name": "org",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "Organization slug.",
+              "title": "Org"
+            },
+            "description": "Organization slug."
+          },
           {
             "name": "job",
             "in": "path",
@@ -3729,7 +3784,7 @@
             "title": "Upload Url",
             "description": "Pre-signed URL for uploading the build tarball."
           },
-          "queue_url": {
+          "job_url": {
             "anyOf": [
               {
                 "type": "string"
@@ -3738,8 +3793,8 @@
                 "type": "null"
               }
             ],
-            "title": "Queue Url",
-            "description": "URL to the queue job processing this build."
+            "title": "Job Url",
+            "description": "URL to the job processing this build."
           },
           "object_count": {
             "anyOf": [
@@ -4312,21 +4367,21 @@
       },
       "DashboardRebuildResponse": {
         "properties": {
-          "queue_job_id": {
+          "job_id": {
             "type": "string",
-            "title": "Queue Job Id",
+            "title": "Job Id",
             "description": "Public Base32 identifier for the enqueued job."
           },
-          "queue_job_url": {
+          "job_url": {
             "type": "string",
-            "title": "Queue Job Url",
-            "description": "URL to the enqueued queue job resource."
+            "title": "Job Url",
+            "description": "URL to the enqueued job resource."
           }
         },
         "type": "object",
         "required": [
-          "queue_job_id",
-          "queue_job_url"
+          "job_id",
+          "job_url"
         ],
         "title": "DashboardRebuildResponse",
         "description": "Dashboard rebuild response with HATEOAS URL."
@@ -4436,7 +4491,7 @@
             "title": "Last Sync Error",
             "description": "Operator-readable error from the most recent sync."
           },
-          "last_sync_queue_job_url": {
+          "last_sync_job_url": {
             "anyOf": [
               {
                 "type": "string"
@@ -4445,8 +4500,8 @@
                 "type": "null"
               }
             ],
-            "title": "Last Sync Queue Job Url",
-            "description": "URL of the most-recently-enqueued ``dashboard_sync`` queue job, or ``None`` if no sync has been enqueued for this binding yet (or the referenced job has been pruned)."
+            "title": "Last Sync Job Url",
+            "description": "URL of the most-recently-enqueued ``dashboard_sync`` job, or ``None`` if no sync has been enqueued for this binding yet (or the referenced job has been pruned)."
           },
           "github_owner_id": {
             "anyOf": [
@@ -4514,27 +4569,21 @@
       },
       "DashboardTemplateSyncEnqueuedResponse": {
         "properties": {
-          "binding_id": {
-            "type": "integer",
-            "title": "Binding Id",
-            "description": "ID of the binding that was synced."
-          },
-          "queue_job_id": {
+          "job_id": {
             "type": "string",
-            "title": "Queue Job Id",
+            "title": "Job Id",
             "description": "Base32 public ID of the enqueued ``dashboard_sync`` job."
           },
-          "queue_job_url": {
+          "job_url": {
             "type": "string",
-            "title": "Queue Job Url",
-            "description": "URL of the enqueued ``dashboard_sync`` queue job."
+            "title": "Job Url",
+            "description": "URL of the enqueued ``dashboard_sync`` job."
           }
         },
         "type": "object",
         "required": [
-          "binding_id",
-          "queue_job_id",
-          "queue_job_url"
+          "job_id",
+          "job_url"
         ],
         "title": "DashboardTemplateSyncEnqueuedResponse",
         "description": "Response body for the dashboard-template force-sync endpoints."
@@ -5121,24 +5170,24 @@
       },
       "KeeperSyncProjectRefreshAccepted": {
         "properties": {
-          "queue_job_id": {
+          "job_id": {
             "type": "string",
-            "title": "Queue Job Id",
+            "title": "Job Id",
             "description": "Public Base32 identifier for the enqueued ``keeper_sync_project`` queue job."
           },
-          "queue_job_url": {
+          "job_url": {
             "type": "string",
             "maxLength": 2083,
             "minLength": 1,
             "format": "uri",
-            "title": "Queue Job Url",
-            "description": "URL of the enqueued queue job resource."
+            "title": "Job Url",
+            "description": "URL of the enqueued job resource."
           }
         },
         "type": "object",
         "required": [
-          "queue_job_id",
-          "queue_job_url"
+          "job_id",
+          "job_url"
         ],
         "title": "KeeperSyncProjectRefreshAccepted",
         "description": "``POST /projects/{ltd_slug}/refresh`` response envelope."
@@ -5321,25 +5370,25 @@
             "$ref": "#/components/schemas/docverse__client__models__keeper_sync__KeeperSyncRun",
             "description": "The newly created run."
           },
-          "queue_job_id": {
+          "job_id": {
             "type": "string",
-            "title": "Queue Job Id",
+            "title": "Job Id",
             "description": "Public Base32 identifier for the enqueued ``keeper_sync_run_discovery`` queue job."
           },
-          "queue_job_url": {
+          "job_url": {
             "type": "string",
             "maxLength": 2083,
             "minLength": 1,
             "format": "uri",
-            "title": "Queue Job Url",
-            "description": "URL of the enqueued discovery queue job resource."
+            "title": "Job Url",
+            "description": "URL of the enqueued discovery job resource."
           }
         },
         "type": "object",
         "required": [
           "run",
-          "queue_job_id",
-          "queue_job_url"
+          "job_id",
+          "job_url"
         ],
         "title": "KeeperSyncRunCreated",
         "description": "``POST /runs`` response — new run plus discovery queue-job link."
@@ -5433,10 +5482,10 @@
             "title": "Self Url",
             "description": "Canonical URL of the DELETE endpoint that would clear this tombstone (``delete_org_keeper_sync_tombstone``). The endpoint accepts only ``DELETE``; GET-on-self is not modelled because the list response already carries every field a single-tombstone fetch would return."
           },
-          "state_id": {
-            "type": "integer",
-            "title": "State Id",
-            "description": "Primary key of the underlying ``keeper_sync_state`` row. Use this id with the DELETE endpoint to clear the tombstone."
+          "id": {
+            "type": "string",
+            "title": "Id",
+            "description": "Public Crockford Base32 identifier for the tombstoned ``keeper_sync_state`` row. Use this id with the DELETE endpoint to clear the tombstone."
           },
           "resource_type": {
             "$ref": "#/components/schemas/KeeperSyncResourceType",
@@ -5502,7 +5551,7 @@
         "type": "object",
         "required": [
           "self_url",
-          "state_id",
+          "id",
           "resource_type",
           "ltd_slug",
           "date_tombstoned",
@@ -5582,22 +5631,22 @@
             "title": "Project Slug",
             "description": "Slug of the project the job will rebuild."
           },
-          "queue_job_id": {
+          "job_id": {
             "type": "string",
-            "title": "Queue Job Id",
+            "title": "Job Id",
             "description": "Public Base32 identifier for the enqueued job."
           },
-          "queue_job_url": {
+          "job_url": {
             "type": "string",
-            "title": "Queue Job Url",
-            "description": "URL to the enqueued queue job resource."
+            "title": "Job Url",
+            "description": "URL to the enqueued job resource."
           }
         },
         "type": "object",
         "required": [
           "project_slug",
-          "queue_job_id",
-          "queue_job_url"
+          "job_id",
+          "job_url"
         ],
         "title": "OrgDashboardRebuildEntry",
         "description": "Org-wide dashboard rebuild entry with HATEOAS URL."
@@ -6717,7 +6766,7 @@
             "title": "Publish Queue Job Public Id",
             "description": "Public Crockford Base32 identifier of the publish_edition job."
           },
-          "queue_job_url": {
+          "job_url": {
             "anyOf": [
               {
                 "type": "string"
@@ -6726,8 +6775,8 @@
                 "type": "null"
               }
             ],
-            "title": "Queue Job Url",
-            "description": "Absolute URL of the publish_edition queue-job resource (a HATEOAS link clients follow instead of reconstructing the path). Omitted when the Docverse API base URL could not be resolved."
+            "title": "Job Url",
+            "description": "Absolute URL of the publish_edition job resource (a HATEOAS link clients follow instead of reconstructing the path). Omitted when the Docverse API base URL could not be resolved."
           }
         },
         "additionalProperties": true,
@@ -6768,14 +6817,14 @@
           "keeper_sync_run_id": {
             "anyOf": [
               {
-                "type": "integer"
+                "type": "string"
               },
               {
                 "type": "null"
               }
             ],
             "title": "Keeper Sync Run Id",
-            "description": "Identifier of the keeper-sync run this job is attributed to, or ``null`` for jobs not part of a run."
+            "description": "Public Crockford Base32 identifier of the keeper-sync run this job is attributed to, or ``null`` for jobs not part of a run."
           },
           "subject_label": {
             "anyOf": [
@@ -7283,12 +7332,12 @@
             "minLength": 1,
             "format": "uri",
             "title": "Jobs Url",
-            "description": "URL to ``GET`` for the run's child queue-job listing (``get_org_keeper_sync_run_jobs``). Always present so clients can paginate the run's children without constructing the URL by hand."
+            "description": "URL to ``GET`` for the run's child queue-job listing (the org-scoped jobs collection filtered to this run, ``GET /orgs/{org}/jobs?run={id}``). Always present so clients can paginate the run's children without constructing the URL by hand."
           },
           "id": {
-            "type": "integer",
+            "type": "string",
             "title": "Id",
-            "description": "Numeric identifier for the run."
+            "description": "Public Crockford Base32 identifier for the run."
           },
           "kind": {
             "$ref": "#/components/schemas/KeeperSyncRunKind",
@@ -7614,12 +7663,12 @@
             "minLength": 1,
             "format": "uri",
             "title": "Jobs Url",
-            "description": "URL to ``GET`` for the run's child queue-job listing (``get_org_keeper_sync_run_jobs``). Always present so clients can paginate the run's children without constructing the URL by hand."
+            "description": "URL to ``GET`` for the run's child queue-job listing (the org-scoped jobs collection filtered to this run, ``GET /orgs/{org}/jobs?run={id}``). Always present so clients can paginate the run's children without constructing the URL by hand."
           },
           "id": {
-            "type": "integer",
+            "type": "string",
             "title": "Id",
-            "description": "Numeric identifier for the run."
+            "description": "Public Crockford Base32 identifier for the run."
           },
           "kind": {
             "$ref": "#/components/schemas/KeeperSyncRunKind",
@@ -8012,7 +8061,7 @@
       "description": "Projects, builds, and editions."
     },
     {
-      "name": "queue",
+      "name": "jobs",
       "description": "Background job status."
     },
     {

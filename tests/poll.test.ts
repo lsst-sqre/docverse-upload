@@ -4,7 +4,7 @@ import { PollTimeoutError, pollPublishJobs, pollQueueJob } from '../src/poll.js'
 
 function makeJob(status: QueueJob['status'], phase: string | null = null): QueueJob {
   return {
-    self_url: 'https://example.test/queue/jobs/JOB1',
+    self_url: 'https://example.test/orgs/rubin/jobs/JOB1',
     id: 'JOB1',
     kind: 'build_processing',
     status,
@@ -67,7 +67,7 @@ function fakePublishClient(
 describe('pollQueueJob', () => {
   it('returns immediately when first poll is terminal', async () => {
     const { client } = fakeClient([makeJob('completed')]);
-    const job = await pollQueueJob(client, 'https://example.test/queue/jobs/JOB1', {
+    const job = await pollQueueJob(client, 'https://example.test/orgs/rubin/jobs/JOB1', {
       timeoutMs: 60_000,
       sleep: vi.fn(),
       random: () => 0,
@@ -89,7 +89,7 @@ describe('pollQueueJob', () => {
     ];
     const { client } = fakeClient(sequence);
     const t = 0;
-    await pollQueueJob(client, 'https://example.test/queue/jobs/JOB1', {
+    await pollQueueJob(client, 'https://example.test/orgs/rubin/jobs/JOB1', {
       timeoutMs: 10 * 60_000,
       sleep,
       random: () => 0,
@@ -108,7 +108,7 @@ describe('pollQueueJob', () => {
   it('adds jitter scaled to current delay', async () => {
     const sleep = vi.fn(async (_ms: number) => {});
     const { client } = fakeClient([makeJob('in_progress'), makeJob('completed')]);
-    await pollQueueJob(client, 'https://example.test/queue/jobs/JOB1', {
+    await pollQueueJob(client, 'https://example.test/orgs/rubin/jobs/JOB1', {
       timeoutMs: 60_000,
       sleep,
       random: () => 0.5,
@@ -126,7 +126,7 @@ describe('pollQueueJob', () => {
     ]);
     let now = 0;
     await expect(
-      pollQueueJob(client, 'https://example.test/queue/jobs/JOB1', {
+      pollQueueJob(client, 'https://example.test/orgs/rubin/jobs/JOB1', {
         timeoutMs: 500,
         sleep,
         random: () => 0,
@@ -194,12 +194,12 @@ describe('pollPublishJobs', () => {
     ).rejects.toBeInstanceOf(PollTimeoutError);
   });
 
-  it('follows queue_job_url when present and same-origin', async () => {
-    const url = 'https://example.test/queue/jobs/p1';
+  it('follows job_url when present and same-origin', async () => {
+    const url = 'https://example.test/orgs/rubin/jobs/p1';
     const client = fakePublishClient({}, { [url]: [makeJob('completed')] });
     const results = await pollPublishJobs(
       client,
-      [{ editionSlug: 'main', jobId: 'p1', queueJobUrl: url }],
+      [{ editionSlug: 'main', jobId: 'p1', jobUrl: url }],
       stable,
     );
     expect(results[0]?.job.status).toBe('completed');
@@ -207,7 +207,7 @@ describe('pollPublishJobs', () => {
     expect(client.getQueueJobById).not.toHaveBeenCalled();
   });
 
-  it('reconstructs by id when queue_job_url is absent', async () => {
+  it('reconstructs by id when job_url is absent', async () => {
     const client = fakePublishClient({ p1: [makeJob('completed')] });
     const results = await pollPublishJobs(client, [{ editionSlug: 'main', jobId: 'p1' }], stable);
     expect(results[0]?.job.status).toBe('completed');
@@ -215,11 +215,11 @@ describe('pollPublishJobs', () => {
     expect(client.getQueueJobByUrl).not.toHaveBeenCalled();
   });
 
-  it('reconstructs by id when queue_job_url is cross-origin', async () => {
+  it('reconstructs by id when job_url is cross-origin', async () => {
     const client = fakePublishClient({ p1: [makeJob('completed')] });
     const results = await pollPublishJobs(
       client,
-      [{ editionSlug: 'main', jobId: 'p1', queueJobUrl: 'https://other.test/queue/jobs/p1' }],
+      [{ editionSlug: 'main', jobId: 'p1', jobUrl: 'https://other.test/orgs/rubin/jobs/p1' }],
       stable,
     );
     expect(results[0]?.job.status).toBe('completed');

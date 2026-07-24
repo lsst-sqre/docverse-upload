@@ -14,7 +14,7 @@ afterEach(() => {
 
 function makeJob(progress: unknown): QueueJob {
   return {
-    self_url: 'https://example.test/queue/jobs/J',
+    self_url: 'https://example.test/orgs/rubin/jobs/J',
     id: 'J',
     kind: 'build_processing',
     status: 'completed',
@@ -130,26 +130,26 @@ describe('extractPublishJobs', () => {
     expect(extractPublishJobs(job)).toEqual([{ editionSlug: 'main', jobId: 'p1' }]);
   });
 
-  it('maps queue_job_url to queueJobUrl when present and omits it otherwise', () => {
+  it('maps job_url to jobUrl when present and omits it otherwise', () => {
     const job = makeJob({
       publish_jobs: [
         {
           edition_slug: 'main',
           publish_queue_job_public_id: 'p1',
-          queue_job_url: 'https://example.test/queue/jobs/p1',
+          job_url: 'https://example.test/orgs/rubin/jobs/p1',
         },
         { edition_slug: 'v1', publish_queue_job_public_id: 'p2' },
-        { edition_slug: 'v2', publish_queue_job_public_id: 'p3', queue_job_url: 42 },
+        { edition_slug: 'v2', publish_queue_job_public_id: 'p3', job_url: 42 },
       ],
     });
     const refs = extractPublishJobs(job);
     expect(refs).toEqual([
-      { editionSlug: 'main', jobId: 'p1', queueJobUrl: 'https://example.test/queue/jobs/p1' },
+      { editionSlug: 'main', jobId: 'p1', jobUrl: 'https://example.test/orgs/rubin/jobs/p1' },
       { editionSlug: 'v1', jobId: 'p2' },
       { editionSlug: 'v2', jobId: 'p3' },
     ]);
-    expect(refs[1]?.queueJobUrl).toBeUndefined();
-    expect(refs[2]?.queueJobUrl).toBeUndefined();
+    expect(refs[1]?.jobUrl).toBeUndefined();
+    expect(refs[2]?.jobUrl).toBeUndefined();
   });
 
   it('returns an empty array when publish_jobs is missing or non-array', () => {
