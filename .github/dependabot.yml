@@ -3,7 +3,9 @@ updates:
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
-      interval: "weekly"
+      interval: "monthly"
+      time: "03:00"
+      timezone: "America/New_York"
     cooldown:
       # Only `default-days` is valid for the github-actions ecosystem; the
       # semver-*-days keys are unsupported here (they apply to semver ecosystems
@@ -27,7 +29,9 @@ updates:
   - package-ecosystem: "npm"
     directory: "/"
     schedule:
-      interval: "weekly"
+      interval: "monthly"
+      time: "03:00"
+      timezone: "America/New_York"
     cooldown:
       default-days: 5
       semver-patch-days: 3
