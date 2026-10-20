@@ -24641,30 +24641,52 @@ function toEditionEntry(edition) {
   return {
     slug: edition.slug,
     published_url: edition.published_url ?? void 0,
-    title: edition.title
+    title: edition.title,
+    kind: edition.kind,
+    publish_status: edition.publish_status ?? null
   };
 }
-function selectPublishedUrl(editions) {
-  const sorted = [...editions].sort((a, b2) => a.slug.localeCompare(b2.slug));
-  for (const entry of sorted) {
-    if (typeof entry.published_url === "string" && entry.published_url.length > 0) {
-      return entry.published_url;
-    }
+function hasPublishedUrl(entry) {
+  return typeof entry.published_url === "string" && entry.published_url.length > 0;
+}
+function trackingParam(edition, key) {
+  const params = edition.tracking_params;
+  if (!params || typeof params !== "object") return null;
+  const value = params[key];
+  return typeof value === "string" ? value : null;
+}
+function tracksBuildRef(edition, build) {
+  const buildAlternate = build.alternate_name ?? null;
+  switch (edition.tracking_mode) {
+    case "git_ref":
+      return buildAlternate === null && trackingParam(edition, "git_ref") === build.git_ref;
+    case "alternate_git_ref":
+      return buildAlternate !== null && trackingParam(edition, "git_ref") === build.git_ref && trackingParam(edition, "alternate_name") === buildAlternate;
+    default:
+      return false;
   }
-  return null;
+}
+function selectPrimaryEdition(resolved, build) {
+  const candidates = [...resolved].filter((r) => hasPublishedUrl(r.entry)).sort((a, b2) => a.entry.slug.localeCompare(b2.entry.slug));
+  if (candidates.length === 0) return null;
+  const tracking = candidates.find((r) => r.edition !== null && tracksBuildRef(r.edition, build));
+  if (tracking) return tracking.entry;
+  const main = candidates.find((r) => r.edition?.kind === "main");
+  if (main) return main.entry;
+  return candidates[0]?.entry ?? null;
 }
 function emitOutputs(outcome) {
-  const { build, job, editions, publishStatus } = outcome;
+  const { build, job, editions, primaryEdition, publishStatus } = outcome;
   const sorted = [...editions].sort((a, b2) => a.slug.localeCompare(b2.slug));
   setOutput("build-id", build.id);
   setOutput("build-url", build.self_url);
-  setOutput("published-url", selectPublishedUrl(sorted) ?? "");
+  setOutput("published-url", primaryEdition?.published_url ?? "");
   setOutput("job-status", job?.status ?? "queued");
   setOutput("publish-status", publishStatus);
   setOutput("editions-json", JSON.stringify(sorted));
 }
 async function writeStepSummary(outcome) {
-  const { build, job, editions, publishStatus } = outcome;
+  const { build, job, editions, primaryEdition, publishStatus } = outcome;
   const summary2 = summary.addHeading("Docverse upload", 2).addRaw(`Build \`${build.id}\` \u2014 status \`${build.status}\``).addEOL().addRaw(`Build URL: ${build.self_url}`).addEOL();
   if (job) {
     summary2.addRaw(`Job \`${job.id}\` \u2014 status \`${job.status}\``).addEOL();
@@ -24674,9 +24696,10 @@ async function writeStepSummary(outcome) {
     }
   }
   if (editions.length > 0) {
-    const rows = [["Slug", "Title", "Published URL"]];
+    const rows = [["Slug", "Title", "Kind", "Published URL"]];
     for (const entry of [...editions].sort((a, b2) => a.slug.localeCompare(b2.slug))) {
-      rows.push([entry.slug, entry.title ?? "", entry.published_url ?? ""]);
+      const slug = entry.slug === primaryEdition?.slug ? `${entry.slug} (primary)` : entry.slug;
+      rows.push([slug, entry.title ?? "", entry.kind ?? "", entry.published_url ?? ""]);
     }
     summary2.addHeading("Editions updated", 3);
     summary2.addTable(
@@ -24809,7 +24832,7 @@ async function postOrUpdateComment(octokit, owner, repo, prNumber, marker, body)
 import { existsSync as existsSync3, statSync } from "node:fs";
 import { resolve } from "node:path";
 var DEFAULT_BASE_URL = "https://roundtable.lsst.cloud/docverse/api";
-var DEFAULT_WAIT_TIMEOUT_MINUTES = 30;
+var DEFAULT_WAIT_TIMEOUT_SECONDS = 1800;
 var InputError = class extends Error {
 };
 function resolveGitRef(env = process.env) {
@@ -24868,8 +24891,8 @@ function parseInputs(env = process.env) {
   const alternateName = optionalString("alternate-name");
   const wait = parseBoolean("wait", true);
   const waitForPublish2 = parseBoolean("wait-for-publish", true);
-  const waitTimeoutMinutes = parsePositiveNumber("wait-timeout", DEFAULT_WAIT_TIMEOUT_MINUTES);
-  const waitTimeoutMs = Math.round(waitTimeoutMinutes * 6e4);
+  const waitTimeoutSeconds = parsePositiveNumber("wait-timeout", DEFAULT_WAIT_TIMEOUT_SECONDS);
+  const waitTimeoutMs = Math.round(waitTimeoutSeconds * 1e3);
   const githubToken = optionalString("github-token");
   const commentOnPr = parseBoolean("comment-on-pr", true);
   validateDir(dir);
@@ -24911,7 +24934,7 @@ var TERMINAL_STATUSES = /* @__PURE__ */ new Set([
 var PollTimeoutError = class extends Error {
   constructor(job, timeoutMs) {
     super(
-      `Build processing did not complete within ${Math.round(timeoutMs / 6e4)} minutes. Job \`${job.id}\` is still \`${job.status}\`. Last phase: \`${job.phase ?? "unknown"}\`.`
+      `Build processing did not complete within ${Math.round(timeoutMs / 1e3)} seconds. Job \`${job.id}\` is still \`${job.status}\`. Last phase: \`${job.phase ?? "unknown"}\`.`
     );
     this.job = job;
     this.timeoutMs = timeoutMs;
@@ -28024,13 +28047,19 @@ async function run() {
   }
 }
 async function reportOutcome(client, inputs, build, job, publishStatus) {
-  const editions = await resolveEditions(
+  const resolved = await resolveEditions(
     client,
     inputs.org,
     inputs.project,
     extractUpdatedEditions(job)
   );
-  const outcome = { build, job, editions, publishStatus };
+  const outcome = {
+    build,
+    job,
+    editions: resolved.map((r) => r.entry),
+    primaryEdition: selectPrimaryEdition(resolved, build),
+    publishStatus
+  };
   emitOutputs(outcome);
   await writeStepSummary(outcome);
   await maybePostPrComment(inputs, outcome);
@@ -28110,18 +28139,18 @@ async function waitForPublish(client, job, timeoutMs) {
   return failed.length ? "failed" : "published";
 }
 async function resolveEditions(client, org, project, refs) {
-  const editions = [];
+  const resolved = [];
   for (const ref of refs) {
     try {
       const edition = ref.editionUrl && client.isSameOrigin(ref.editionUrl) ? await client.getEditionByUrl(ref.editionUrl) : await client.getEdition(org, project, ref.slug);
-      editions.push(toEditionEntry(edition));
+      resolved.push({ entry: toEditionEntry(edition), edition });
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       warning(`Could not resolve published URL for edition \`${ref.slug}\`: ${message}`);
-      editions.push({ slug: ref.slug });
+      resolved.push({ entry: { slug: ref.slug }, edition: null });
     }
   }
-  return editions;
+  return resolved;
 }
 function formatJobError(job) {
   if (job.errors && typeof job.errors === "object") {

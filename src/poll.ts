@@ -28,7 +28,7 @@ export class PollTimeoutError extends Error {
     public readonly timeoutMs: number,
   ) {
     super(
-      `Build processing did not complete within ${Math.round(timeoutMs / 60_000)} minutes. ` +
+      `Build processing did not complete within ${Math.round(timeoutMs / 1000)} seconds. ` +
         `Job \`${job.id}\` is still \`${job.status}\`. Last phase: \`${job.phase ?? 'unknown'}\`.`,
     );
   }

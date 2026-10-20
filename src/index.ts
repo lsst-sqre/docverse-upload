@@ -7,11 +7,12 @@ import { commentMarker, renderCommentBody } from './comment.js';
 import { postOrUpdateComment, resolveTargetPrs } from './github.js';
 import { type ActionInputs, InputError, parseInputs } from './inputs.js';
 import {
-  type EditionEntry,
   emitOutputs,
   extractPublishJobs,
   extractUpdatedEditions,
-  type PublishStatus,
+  type PublishWaitStatus,
+  type ResolvedEdition,
+  selectPrimaryEdition,
   toEditionEntry,
   type UpdatedEditionRef,
   type UploadOutcome,
@@ -65,7 +66,7 @@ export async function run(): Promise<void> {
       core.info(`Queue job ${finalJob.id} reached terminal status ${finalJob.status}`);
     }
 
-    let publishStatus: PublishStatus = 'skipped';
+    let publishStatus: PublishWaitStatus = 'skipped';
     if (inputs.wait && inputs.waitForPublish && finalJob) {
       publishStatus = await waitForPublish(client, finalJob, Math.max(deadline - Date.now(), 0));
     } else if (!inputs.wait && inputs.waitForPublish) {
@@ -87,15 +88,21 @@ async function reportOutcome(
   inputs: ActionInputs,
   build: Build,
   job: QueueJob | null,
-  publishStatus: PublishStatus,
+  publishStatus: PublishWaitStatus,
 ): Promise<void> {
-  const editions = await resolveEditions(
+  const resolved = await resolveEditions(
     client,
     inputs.org,
     inputs.project,
     extractUpdatedEditions(job),
   );
-  const outcome: UploadOutcome = { build, job, editions, publishStatus };
+  const outcome: UploadOutcome = {
+    build,
+    job,
+    editions: resolved.map((r) => r.entry),
+    primaryEdition: selectPrimaryEdition(resolved, build),
+    publishStatus,
+  };
   emitOutputs(outcome);
   await writeStepSummary(outcome);
 
@@ -176,7 +183,7 @@ async function waitForPublish(
   client: DocverseClient,
   job: QueueJob,
   timeoutMs: number,
-): Promise<PublishStatus> {
+): Promise<PublishWaitStatus> {
   const refs = extractPublishJobs(job);
   if (refs.length === 0) {
     return 'skipped';
@@ -204,35 +211,35 @@ async function waitForPublish(
 }
 
 /**
- * Resolve `published_url`/`title` for each updated edition. The queue-job
- * progress names the updated slugs and (when available) an `edition_url`
- * HATEOAS link; the published URL lives only on the edition resource, so we
- * still fetch each one — following `edition_url` when it is present and
+ * Resolve each updated edition's resource. The queue-job progress names the
+ * updated slugs and (when available) an `edition_url` HATEOAS link; the
+ * published URL, kind, and publish status live only on the edition resource,
+ * so we still fetch each one — following `edition_url` when it is present and
  * same-origin, otherwise reconstructing the path from `org`/`project`/`slug`.
- * A failed lookup degrades to a slug-only entry rather than failing the whole
- * action.
+ * A failed lookup degrades to a slug-only entry (with no edition resource)
+ * rather than failing the whole action.
  */
 async function resolveEditions(
   client: DocverseClient,
   org: string,
   project: string,
   refs: UpdatedEditionRef[],
-): Promise<EditionEntry[]> {
-  const editions: EditionEntry[] = [];
+): Promise<ResolvedEdition[]> {
+  const resolved: ResolvedEdition[] = [];
   for (const ref of refs) {
     try {
       const edition =
         ref.editionUrl && client.isSameOrigin(ref.editionUrl)
           ? await client.getEditionByUrl(ref.editionUrl)
           : await client.getEdition(org, project, ref.slug);
-      editions.push(toEditionEntry(edition));
+      resolved.push({ entry: toEditionEntry(edition), edition });
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       core.warning(`Could not resolve published URL for edition \`${ref.slug}\`: ${message}`);
-      editions.push({ slug: ref.slug });
+      resolved.push({ entry: { slug: ref.slug }, edition: null });
     }
   }
-  return editions;
+  return resolved;
 }
 
 function formatJobError(job: QueueJob): string {

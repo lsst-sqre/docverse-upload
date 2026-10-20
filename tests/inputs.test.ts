@@ -56,7 +56,7 @@ describe('parseInputs', () => {
     expect(inputs.baseUrl).toBe('https://roundtable.lsst.cloud/docverse/api');
     expect(inputs.wait).toBe(true);
     expect(inputs.waitForPublish).toBe(true);
-    expect(inputs.waitTimeoutMs).toBe(30 * 60_000);
+    expect(inputs.waitTimeoutMs).toBe(1800 * 1000);
     expect(inputs.alternateName).toBeNull();
   });
 
@@ -80,6 +80,18 @@ describe('parseInputs', () => {
 
   it('rejects a missing dir', () => {
     setBaseInputs({ dir: '/this/path/does/not/exist' });
+    process.env.GITHUB_REF_NAME = 'main';
+    expect(() => parseInputs()).toThrow(InputError);
+  });
+
+  it('reads wait-timeout in seconds', () => {
+    setBaseInputs({ 'wait-timeout': '90' });
+    process.env.GITHUB_REF_NAME = 'main';
+    expect(parseInputs().waitTimeoutMs).toBe(90_000);
+  });
+
+  it('rejects a non-positive wait-timeout', () => {
+    setBaseInputs({ 'wait-timeout': '0' });
     process.env.GITHUB_REF_NAME = 'main';
     expect(() => parseInputs()).toThrow(InputError);
   });

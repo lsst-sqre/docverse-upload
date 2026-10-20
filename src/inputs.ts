@@ -3,7 +3,7 @@ import { resolve } from 'node:path';
 import * as core from '@actions/core';
 
 const DEFAULT_BASE_URL = 'https://roundtable.lsst.cloud/docverse/api';
-const DEFAULT_WAIT_TIMEOUT_MINUTES = 30;
+const DEFAULT_WAIT_TIMEOUT_SECONDS = 1800;
 
 export interface ActionInputs {
   org: string;
@@ -86,8 +86,8 @@ export function parseInputs(env: NodeJS.ProcessEnv = process.env): ActionInputs 
   const alternateName = optionalString('alternate-name');
   const wait = parseBoolean('wait', true);
   const waitForPublish = parseBoolean('wait-for-publish', true);
-  const waitTimeoutMinutes = parsePositiveNumber('wait-timeout', DEFAULT_WAIT_TIMEOUT_MINUTES);
-  const waitTimeoutMs = Math.round(waitTimeoutMinutes * 60_000);
+  const waitTimeoutSeconds = parsePositiveNumber('wait-timeout', DEFAULT_WAIT_TIMEOUT_SECONDS);
+  const waitTimeoutMs = Math.round(waitTimeoutSeconds * 1000);
 
   const githubToken = optionalString('github-token');
   const commentOnPr = parseBoolean('comment-on-pr', true);

@@ -43,9 +43,9 @@ inputs:
     required: false
     default: 'true'
   wait-timeout:
-    description: 'Maximum minutes to wait for the queue job to reach a terminal state.'
+    description: 'Maximum seconds to wait for the queue job to reach a terminal state.'
     required: false
-    default: '30'
+    default: '1800'
   github-token:
     description: |-
       GitHub token used to post (and update in place) a comment on the
@@ -68,13 +68,18 @@ outputs:
   build-url:
     description: 'HATEOAS `self_url` of the build resource.'
   published-url:
-    description: 'First `published_url` among the updated editions, sorted by slug ASC.'
+    description: |-
+      `published_url` of the primary updated edition: the edition tracking the
+      build's `git_ref` (and `alternate_name`), else the `main` edition, else
+      the first by slug ASC. Empty when no updated edition has a URL.
   job-status:
     description: 'Terminal queue-job status (or `queued` when `wait: false`).'
   publish-status:
     description: 'Publish outcome: `published`, `failed`, `timed-out`, or `skipped`.'
   editions-json:
-    description: 'JSON array of the updated editions (`slug`, `title`, `published_url`), sorted by slug.'
+    description: |-
+      JSON array of the updated editions (`slug`, `title`, `kind`,
+      `published_url`, `publish_status`), sorted by slug.
 runs:
   using: 'node24'
   main: 'dist/index.js'
