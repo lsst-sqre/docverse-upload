@@ -6,3 +6,4 @@
 ### Other changes
 
 - Type Docverse error bodies (`ErrorModel` for 403/404/409, `HTTPValidationError` for 422) from the generated OpenAPI types when formatting error messages.
+- Add an end-to-end smoke test to CI that runs the action against the roundtable-dev Docverse server and verifies the published site.

@@ -47,3 +47,97 @@ jobs:
             echo "::error::generated/ or dist/ is out of sync. Run \`pnpm generate-types && pnpm build\` and commit the result."
             exit 1
           fi
+
+  # End-to-end smoke test: run the action from this checkout's committed
+  # dist/ against the roundtable-dev Docverse server, uploading a tiny
+  # generated site to a project reserved for this repo. Exercises the real
+  # create → upload → patch → poll → publish flow (plus the PR comment) that
+  # the msw-mocked unit tests cannot.
+  #
+  # Credentials: DOCVERSE_DEV_CI is a Gafaelfawr token for the
+  # `bot-docverse-upload-action-ci` service user, which holds the `uploader`
+  # role in the `jsc-test-20260807` org on roundtable-dev. It is provisioned
+  # as both an Actions secret and a Dependabot secret so Dependabot PRs get
+  # the smoke test too. Fork PRs cannot read secrets, so they are skipped.
+  upload-smoke-test:
+    needs: build
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      pull-requests: write # for the action's PR comment
+    env:
+      PUBLISHED_HOST: docverse-upload-ci.jsc-docverse.ca
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Generate a test site
+        run: |
+          mkdir -p site/sub
+          cat > site/index.html <<HTML
+          <!doctype html>
+          <title>docverse-upload smoke test</title>
+          <h1>docverse-upload smoke test</h1>
+          <p>Run: <code>${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}</code></p>
+          <p>Commit: <code>${GITHUB_SHA}</code></p>
+          <p>Ref: <code>${GITHUB_HEAD_REF:-$GITHUB_REF_NAME}</code></p>
+          <p><a href="sub/page.html">Subpage</a></p>
+          HTML
+          cat > site/sub/page.html <<HTML
+          <!doctype html>
+          <title>Subpage</title>
+          <p>Nested page for run ${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}.</p>
+          HTML
+
+      - name: Upload to roundtable-dev Docverse
+        id: upload
+        uses: ./
+        with:
+          org: jsc-test-20260807
+          project: docverse-upload-ci
+          dir: site
+          token: ${{ secrets.DOCVERSE_DEV_CI }}
+          base-url: https://roundtable-dev.lsst.cloud/docverse/api
+          github-token: ${{ github.token }}
+
+      - name: Check action outputs
+        env:
+          BUILD_ID: ${{ steps.upload.outputs.build-id }}
+          BUILD_URL: ${{ steps.upload.outputs.build-url }}
+          JOB_STATUS: ${{ steps.upload.outputs.job-status }}
+          PUBLISH_STATUS: ${{ steps.upload.outputs.publish-status }}
+          PUBLISHED_URL: ${{ steps.upload.outputs.published-url }}
+          EDITIONS_JSON: ${{ steps.upload.outputs.editions-json }}
+        run: |
+          echo "build-id=$BUILD_ID"
+          echo "build-url=$BUILD_URL"
+          echo "job-status=$JOB_STATUS"
+          echo "publish-status=$PUBLISH_STATUS"
+          echo "published-url=$PUBLISHED_URL"
+          echo "editions-json=$EDITIONS_JSON"
+          test -n "$BUILD_ID"
+          test "$JOB_STATUS" = completed
+          test "$PUBLISH_STATUS" = published
+          test -n "$PUBLISHED_URL"
+          case "$PUBLISHED_URL" in
+            https://${PUBLISHED_HOST}/*) ;;
+            *) echo "::error::published-url is not on ${PUBLISHED_HOST}: $PUBLISHED_URL"; exit 1 ;;
+          esac
+
+      - name: Verify the published site serves this run
+        env:
+          PUBLISHED_URL: ${{ steps.upload.outputs.published-url }}
+        run: |
+          marker="${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          for attempt in $(seq 1 12); do
+            if curl -fsS "${PUBLISHED_URL}" | grep -q "$marker" \
+              && curl -fsS "${PUBLISHED_URL%/}/sub/page.html" | grep -q "$marker"; then
+              echo "Published site at ${PUBLISHED_URL} serves run ${marker}."
+              exit 0
+            fi
+            echo "Attempt ${attempt}: ${PUBLISHED_URL} does not serve run ${marker} yet; retrying…"
+            sleep 10
+          done
+          echo "::error::Published site at ${PUBLISHED_URL} never served run ${marker}."
+          exit 1
