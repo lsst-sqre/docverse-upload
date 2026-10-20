@@ -9,7 +9,7 @@ import { formatApiError, formatNetworkError, formatUploadError } from './errors.
 
 export type Build = components['schemas']['Build'];
 export type QueueJob = components['schemas']['QueueJob'];
-export type Edition = components['schemas']['docverse__handlers__orgs__models__Edition'];
+export type Edition = components['schemas']['Edition'];
 
 type Fetch = typeof globalThis.fetch;
 type OpenapiFetchClient = ReturnType<typeof createOpenapiFetch<paths>>;
@@ -29,7 +29,6 @@ export interface CreateBuildOptions {
   org: string;
   project: string;
   gitRef: string;
-  contentHash: string;
   alternateName: string | null;
   annotations: BuildAnnotations | null;
 }
@@ -53,10 +52,15 @@ export class DocverseClient {
     this.errorContext = { org, project, baseUrl };
   }
 
+  /**
+   * Create a build resource. The request deliberately omits the deprecated
+   * `content_hash` field: Docverse computes the build's content identity
+   * server-side while processing the upload, and the field is slated for
+   * removal.
+   */
   async createBuild(opts: CreateBuildOptions): Promise<Build> {
     const body: components['schemas']['BuildCreate'] = {
       git_ref: opts.gitRef,
-      content_hash: opts.contentHash,
     };
     if (opts.alternateName !== null) {
       body.alternate_name = opts.alternateName;

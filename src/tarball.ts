@@ -1,22 +1,23 @@
-import { createHash, type Hash } from 'node:crypto';
 import { createWriteStream } from 'node:fs';
-import { mkdtemp, readdir, rm } from 'node:fs/promises';
+import { mkdtemp, readdir, rm, stat } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { Transform, type TransformCallback } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
 import { create as createTar } from 'tar';
 
 export interface TarballResult {
   path: string;
-  contentHash: string;
+  sizeBytes: number;
   cleanup: () => Promise<void>;
 }
 
 /**
- * Create a gzipped tarball of the contents of `sourceDir`, computing a
- * streaming SHA-256 over the gzip output. Returns the temp path, the
- * `sha256:<hex>` content hash, and a cleanup function.
+ * Create a gzipped tarball of the contents of `sourceDir`. Returns the temp
+ * path, the tarball size in bytes, and a cleanup function.
+ *
+ * No client-side digest is computed: Docverse derives the build's content
+ * identity server-side from the uploaded files, and the client-supplied
+ * `content_hash` is deprecated.
  */
 export async function createTarball(sourceDir: string): Promise<TarballResult> {
   const entries = await readdir(sourceDir);
@@ -30,10 +31,6 @@ export async function createTarball(sourceDir: string): Promise<TarballResult> {
   const tarPath = join(tmpDir, 'build.tar.gz');
   const cleanup = () => safeRm(tmpDir);
 
-  const hasher = createHash('sha256');
-  const fileStream = createWriteStream(tarPath);
-  const hashingStream = new HashingPassthrough(hasher);
-
   const tarStream = createTar(
     {
       gzip: true,
@@ -44,17 +41,14 @@ export async function createTarball(sourceDir: string): Promise<TarballResult> {
   );
 
   try {
-    await pipeline(tarStream, hashingStream, fileStream);
+    await pipeline(tarStream, createWriteStream(tarPath));
   } catch (err) {
     await cleanup();
     throw err;
   }
 
-  return {
-    path: tarPath,
-    contentHash: `sha256:${hasher.digest('hex')}`,
-    cleanup,
-  };
+  const { size } = await stat(tarPath);
+  return { path: tarPath, sizeBytes: size, cleanup };
 }
 
 async function safeRm(path: string): Promise<void> {
@@ -62,16 +56,5 @@ async function safeRm(path: string): Promise<void> {
     await rm(path, { recursive: true, force: true });
   } catch {
     // best-effort
-  }
-}
-
-class HashingPassthrough extends Transform {
-  constructor(private readonly hasher: Hash) {
-    super();
-  }
-
-  override _transform(chunk: Buffer, _enc: BufferEncoding, cb: TransformCallback): void {
-    this.hasher.update(chunk);
-    cb(null, chunk);
   }
 }

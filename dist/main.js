@@ -4006,7 +4006,7 @@ var require_webidl = __commonJS({
 var require_util2 = __commonJS({
   "node_modules/.pnpm/undici@6.26.0/node_modules/undici/lib/web/fetch/util.js"(exports, module) {
     "use strict";
-    var { Transform: Transform2 } = __require("node:stream");
+    var { Transform } = __require("node:stream");
     var zlib = __require("node:zlib");
     var { redirectStatusSet, referrerPolicySet: referrerPolicyTokens, badPortsSet } = require_constants3();
     var { getGlobalOrigin } = require_global();
@@ -4694,7 +4694,7 @@ var require_util2 = __commonJS({
       contentRange += isomorphicEncode(`${fullLength}`);
       return contentRange;
     }
-    var InflateStream = class extends Transform2 {
+    var InflateStream = class extends Transform {
       #zlibOptions;
       /** @param {zlib.ZlibOptions} [zlibOptions] */
       constructor(zlibOptions) {
@@ -11020,13 +11020,13 @@ var require_pluralizer = __commonJS({
 var require_pending_interceptors_formatter = __commonJS({
   "node_modules/.pnpm/undici@6.26.0/node_modules/undici/lib/mock/pending-interceptors-formatter.js"(exports, module) {
     "use strict";
-    var { Transform: Transform2 } = __require("node:stream");
+    var { Transform } = __require("node:stream");
     var { Console } = __require("node:console");
     var PERSISTENT = process.versions.icu ? "\u2705" : "Y ";
     var NOT_PERSISTENT = process.versions.icu ? "\u274C" : "N ";
     module.exports = class PendingInterceptorsFormatter {
       constructor({ disableColors } = {}) {
-        this.transform = new Transform2({
+        this.transform = new Transform({
           transform(chunk, _enc, cb) {
             cb(null, chunk);
           }
@@ -18013,14 +18013,14 @@ var require_util8 = __commonJS({
 var require_eventsource_stream = __commonJS({
   "node_modules/.pnpm/undici@6.26.0/node_modules/undici/lib/web/eventsource/eventsource-stream.js"(exports, module) {
     "use strict";
-    var { Transform: Transform2 } = __require("node:stream");
+    var { Transform } = __require("node:stream");
     var { isASCIINumber, isValidLastEventId } = require_util8();
     var BOM = [239, 187, 191];
     var LF = 10;
     var CR = 13;
     var COLON = 58;
     var SPACE = 32;
-    var EventSourceStream = class extends Transform2 {
+    var EventSourceStream = class extends Transform {
       /**
        * @type {eventSourceSettings}
        */
@@ -24364,18 +24364,26 @@ function formatUploadError(failure) {
   const excerpt = failure.rawBody.slice(0, 400);
   return `Tarball upload to presigned URL failed (HTTP ${failure.status} ${failure.statusText}): ${excerpt}`;
 }
+function isApiErrorBody(body) {
+  return typeof body === "object" && body !== null && "detail" in body && Array.isArray(body.detail);
+}
+function formatDetailEntry(entry) {
+  if (typeof entry !== "object" || entry === null) {
+    return JSON.stringify(entry);
+  }
+  const { loc, msg } = entry;
+  const location = Array.isArray(loc) ? loc.join(".") : "";
+  const message = typeof msg === "string" ? msg : JSON.stringify(entry);
+  return location ? `${location}: ${message}` : message;
+}
 function extractDetail(failure) {
   const body = failure.body;
+  if (isApiErrorBody(body)) {
+    return body.detail.map(formatDetailEntry).join("; ");
+  }
   if (body && typeof body === "object" && "detail" in body) {
     const detail = body.detail;
     if (typeof detail === "string") return detail;
-    if (Array.isArray(detail)) {
-      return detail.map((entry) => {
-        const loc = Array.isArray(entry.loc) ? entry.loc.join(".") : "";
-        const msg = typeof entry.msg === "string" ? entry.msg : JSON.stringify(entry);
-        return loc ? `${loc}: ${msg}` : msg;
-      }).join("; ");
-    }
     return JSON.stringify(detail);
   }
   return failure.rawBody.slice(0, 400) || "<empty body>";
@@ -24412,10 +24420,15 @@ var DocverseClient = class {
   fetchImpl;
   client;
   errorContext;
+  /**
+   * Create a build resource. The request deliberately omits the deprecated
+   * `content_hash` field: Docverse computes the build's content identity
+   * server-side while processing the upload, and the field is slated for
+   * removal.
+   */
   async createBuild(opts) {
     const body = {
-      git_ref: opts.gitRef,
-      content_hash: opts.contentHash
+      git_ref: opts.gitRef
     };
     if (opts.alternateName !== null) {
       body.alternate_name = opts.alternateName;
@@ -24628,30 +24641,52 @@ function toEditionEntry(edition) {
   return {
     slug: edition.slug,
     published_url: edition.published_url ?? void 0,
-    title: edition.title
+    title: edition.title,
+    kind: edition.kind,
+    publish_status: edition.publish_status ?? null
   };
 }
-function selectPublishedUrl(editions) {
-  const sorted = [...editions].sort((a, b2) => a.slug.localeCompare(b2.slug));
-  for (const entry of sorted) {
-    if (typeof entry.published_url === "string" && entry.published_url.length > 0) {
-      return entry.published_url;
-    }
+function hasPublishedUrl(entry) {
+  return typeof entry.published_url === "string" && entry.published_url.length > 0;
+}
+function trackingParam(edition, key) {
+  const params = edition.tracking_params;
+  if (!params || typeof params !== "object") return null;
+  const value = params[key];
+  return typeof value === "string" ? value : null;
+}
+function tracksBuildRef(edition, build) {
+  const buildAlternate = build.alternate_name ?? null;
+  switch (edition.tracking_mode) {
+    case "git_ref":
+      return buildAlternate === null && trackingParam(edition, "git_ref") === build.git_ref;
+    case "alternate_git_ref":
+      return buildAlternate !== null && trackingParam(edition, "git_ref") === build.git_ref && trackingParam(edition, "alternate_name") === buildAlternate;
+    default:
+      return false;
   }
-  return null;
+}
+function selectPrimaryEdition(resolved, build) {
+  const candidates = [...resolved].filter((r) => hasPublishedUrl(r.entry)).sort((a, b2) => a.entry.slug.localeCompare(b2.entry.slug));
+  if (candidates.length === 0) return null;
+  const tracking = candidates.find((r) => r.edition !== null && tracksBuildRef(r.edition, build));
+  if (tracking) return tracking.entry;
+  const main = candidates.find((r) => r.edition?.kind === "main");
+  if (main) return main.entry;
+  return candidates[0]?.entry ?? null;
 }
 function emitOutputs(outcome) {
-  const { build, job, editions, publishStatus } = outcome;
+  const { build, job, editions, primaryEdition, publishStatus } = outcome;
   const sorted = [...editions].sort((a, b2) => a.slug.localeCompare(b2.slug));
   setOutput("build-id", build.id);
   setOutput("build-url", build.self_url);
-  setOutput("published-url", selectPublishedUrl(sorted) ?? "");
+  setOutput("published-url", primaryEdition?.published_url ?? "");
   setOutput("job-status", job?.status ?? "queued");
   setOutput("publish-status", publishStatus);
   setOutput("editions-json", JSON.stringify(sorted));
 }
 async function writeStepSummary(outcome) {
-  const { build, job, editions, publishStatus } = outcome;
+  const { build, job, editions, primaryEdition, publishStatus } = outcome;
   const summary2 = summary.addHeading("Docverse upload", 2).addRaw(`Build \`${build.id}\` \u2014 status \`${build.status}\``).addEOL().addRaw(`Build URL: ${build.self_url}`).addEOL();
   if (job) {
     summary2.addRaw(`Job \`${job.id}\` \u2014 status \`${job.status}\``).addEOL();
@@ -24661,9 +24696,10 @@ async function writeStepSummary(outcome) {
     }
   }
   if (editions.length > 0) {
-    const rows = [["Slug", "Title", "Published URL"]];
+    const rows = [["Slug", "Title", "Kind", "Published URL"]];
     for (const entry of [...editions].sort((a, b2) => a.slug.localeCompare(b2.slug))) {
-      rows.push([entry.slug, entry.title ?? "", entry.published_url ?? ""]);
+      const slug = entry.slug === primaryEdition?.slug ? `${entry.slug} (primary)` : entry.slug;
+      rows.push([slug, entry.title ?? "", entry.kind ?? "", entry.published_url ?? ""]);
     }
     summary2.addHeading("Editions updated", 3);
     summary2.addTable(
@@ -24796,7 +24832,7 @@ async function postOrUpdateComment(octokit, owner, repo, prNumber, marker, body)
 import { existsSync as existsSync3, statSync } from "node:fs";
 import { resolve } from "node:path";
 var DEFAULT_BASE_URL = "https://roundtable.lsst.cloud/docverse/api";
-var DEFAULT_WAIT_TIMEOUT_MINUTES = 30;
+var DEFAULT_WAIT_TIMEOUT_SECONDS = 1800;
 var InputError = class extends Error {
 };
 function resolveGitRef(env = process.env) {
@@ -24855,8 +24891,8 @@ function parseInputs(env = process.env) {
   const alternateName = optionalString("alternate-name");
   const wait = parseBoolean("wait", true);
   const waitForPublish2 = parseBoolean("wait-for-publish", true);
-  const waitTimeoutMinutes = parsePositiveNumber("wait-timeout", DEFAULT_WAIT_TIMEOUT_MINUTES);
-  const waitTimeoutMs = Math.round(waitTimeoutMinutes * 6e4);
+  const waitTimeoutSeconds = parsePositiveNumber("wait-timeout", DEFAULT_WAIT_TIMEOUT_SECONDS);
+  const waitTimeoutMs = Math.round(waitTimeoutSeconds * 1e3);
   const githubToken = optionalString("github-token");
   const commentOnPr = parseBoolean("comment-on-pr", true);
   validateDir(dir);
@@ -24879,8 +24915,8 @@ function validateDir(dir) {
   if (!existsSync3(dir)) {
     throw new InputError(`Input \`dir\` does not exist: ${dir}`);
   }
-  const stat3 = statSync(dir);
-  if (!stat3.isDirectory()) {
+  const stat4 = statSync(dir);
+  if (!stat4.isDirectory()) {
     throw new InputError(`Input \`dir\` is not a directory: ${dir}`);
   }
 }
@@ -24898,7 +24934,7 @@ var TERMINAL_STATUSES = /* @__PURE__ */ new Set([
 var PollTimeoutError = class extends Error {
   constructor(job, timeoutMs) {
     super(
-      `Build processing did not complete within ${Math.round(timeoutMs / 6e4)} minutes. Job \`${job.id}\` is still \`${job.status}\`. Last phase: \`${job.phase ?? "unknown"}\`.`
+      `Build processing did not complete within ${Math.round(timeoutMs / 1e3)} seconds. Job \`${job.id}\` is still \`${job.status}\`. Last phase: \`${job.phase ?? "unknown"}\`.`
     );
     this.job = job;
     this.timeoutMs = timeoutMs;
@@ -24948,12 +24984,10 @@ function defaultSleep(ms2) {
 }
 
 // src/tarball.ts
-import { createHash } from "node:crypto";
 import { createWriteStream } from "node:fs";
-import { mkdtemp, readdir as readdir2, rm as rm2 } from "node:fs/promises";
+import { mkdtemp, readdir as readdir2, rm as rm2, stat as stat3 } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { Transform } from "node:stream";
 import { pipeline } from "node:stream/promises";
 
 // node_modules/.pnpm/tar@7.5.22/node_modules/tar/dist/esm/index.min.js
@@ -27936,9 +27970,6 @@ async function createTarball(sourceDir) {
   const tmpDir = await mkdtemp(join(tmpdir(), "docverse-upload-"));
   const tarPath = join(tmpDir, "build.tar.gz");
   const cleanup = () => safeRm(tmpDir);
-  const hasher = createHash("sha256");
-  const fileStream = createWriteStream(tarPath);
-  const hashingStream = new HashingPassthrough(hasher);
   const tarStream = Qn(
     {
       gzip: true,
@@ -27948,16 +27979,13 @@ async function createTarball(sourceDir) {
     entries
   );
   try {
-    await pipeline(tarStream, hashingStream, fileStream);
+    await pipeline(tarStream, createWriteStream(tarPath));
   } catch (err) {
     await cleanup();
     throw err;
   }
-  return {
-    path: tarPath,
-    contentHash: `sha256:${hasher.digest("hex")}`,
-    cleanup
-  };
+  const { size } = await stat3(tarPath);
+  return { path: tarPath, sizeBytes: size, cleanup };
 }
 async function safeRm(path) {
   try {
@@ -27965,17 +27993,6 @@ async function safeRm(path) {
   } catch {
   }
 }
-var HashingPassthrough = class extends Transform {
-  constructor(hasher) {
-    super();
-    this.hasher = hasher;
-  }
-  hasher;
-  _transform(chunk, _enc, cb) {
-    this.hasher.update(chunk);
-    cb(null, chunk);
-  }
-};
 
 // src/index.ts
 async function run() {
@@ -27985,14 +28002,13 @@ async function run() {
     info(`Uploading docs for ${inputs.org}/${inputs.project} on ref ${inputs.gitRef}`);
     const tarball = await createTarball(inputs.dir);
     cleanup = tarball.cleanup;
-    info(`Built tarball at ${tarball.path} (${tarball.contentHash})`);
+    info(`Built tarball at ${tarball.path} (${tarball.sizeBytes} bytes)`);
     const annotations = detectGithubActionsAnnotations();
     const client = new DocverseClient(inputs.baseUrl, inputs.token, inputs.org, inputs.project);
     const build = await client.createBuild({
       org: inputs.org,
       project: inputs.project,
       gitRef: inputs.gitRef,
-      contentHash: tarball.contentHash,
       alternateName: inputs.alternateName,
       annotations
     });
@@ -28031,13 +28047,19 @@ async function run() {
   }
 }
 async function reportOutcome(client, inputs, build, job, publishStatus) {
-  const editions = await resolveEditions(
+  const resolved = await resolveEditions(
     client,
     inputs.org,
     inputs.project,
     extractUpdatedEditions(job)
   );
-  const outcome = { build, job, editions, publishStatus };
+  const outcome = {
+    build,
+    job,
+    editions: resolved.map((r) => r.entry),
+    primaryEdition: selectPrimaryEdition(resolved, build),
+    publishStatus
+  };
   emitOutputs(outcome);
   await writeStepSummary(outcome);
   await maybePostPrComment(inputs, outcome);
@@ -28117,18 +28139,18 @@ async function waitForPublish(client, job, timeoutMs) {
   return failed.length ? "failed" : "published";
 }
 async function resolveEditions(client, org, project, refs) {
-  const editions = [];
+  const resolved = [];
   for (const ref of refs) {
     try {
       const edition = ref.editionUrl && client.isSameOrigin(ref.editionUrl) ? await client.getEditionByUrl(ref.editionUrl) : await client.getEdition(org, project, ref.slug);
-      editions.push(toEditionEntry(edition));
+      resolved.push({ entry: toEditionEntry(edition), edition });
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       warning(`Could not resolve published URL for edition \`${ref.slug}\`: ${message}`);
-      editions.push({ slug: ref.slug });
+      resolved.push({ entry: { slug: ref.slug }, edition: null });
     }
   }
-  return editions;
+  return resolved;
 }
 function formatJobError(job) {
   if (job.errors && typeof job.errors === "object") {

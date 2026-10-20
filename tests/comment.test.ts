@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { Build, QueueJob } from '../src/client.js';
 import { commentMarker, renderCommentBody } from '../src/comment.js';
 import type { ActionInputs } from '../src/inputs.js';
-import type { EditionEntry, PublishStatus, UploadOutcome } from '../src/outputs.js';
+import type { EditionEntry, PublishWaitStatus, UploadOutcome } from '../src/outputs.js';
 
 const MARKER = '<!-- docverse:pr-comment:example.test:rubin/docs -->';
 
@@ -67,13 +67,14 @@ function makeJob(overrides: Partial<QueueJob> = {}): QueueJob {
 function makeOutcome(parts: {
   job?: QueueJob | null;
   editions?: EditionEntry[];
-  publishStatus?: PublishStatus;
+  publishStatus?: PublishWaitStatus;
   build?: Build;
 }): UploadOutcome {
   return {
     build: parts.build ?? makeBuild(),
     job: parts.job ?? makeJob(),
     editions: parts.editions ?? [],
+    primaryEdition: parts.editions?.[0] ?? null,
     publishStatus: parts.publishStatus ?? 'published',
   };
 }

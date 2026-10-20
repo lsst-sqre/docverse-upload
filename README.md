@@ -24,8 +24,8 @@ The action is a **native JavaScript GitHub Action**: it runs directly on the run
 
 The action performs the full upload workflow:
 
-1. Tars the directory and streams it through SHA-256.
-2. `POST /orgs/{org}/projects/{project}/builds` to create a build resource.
+1. Tars the directory.
+2. `POST /orgs/{org}/projects/{project}/builds` to create a build resource. Docverse computes the build's content identity server-side, so no client-side digest is sent.
 3. `PUT` the tarball to the presigned URL returned by the server.
 4. `PATCH` the build with `status: uploaded` to start processing.
 5. Polls the queue job until it reaches a terminal state.
@@ -44,7 +44,7 @@ The action performs the full upload workflow:
 | `alternate-name` | no       | —                                                  | Alternate deployment name for scoped editions. |
 | `wait`           | no       | `true`                                             | Wait for processing to complete. When `false`, the action returns right after PATCH. |
 | `wait-for-publish` | no     | `true`                                             | After build processing, wait for the `publish_edition` jobs so the edition is live. Only effective when `wait: true`. Failures/timeouts warn rather than failing the step. |
-| `wait-timeout`   | no       | `30`                                               | Maximum minutes to wait for the queue job to reach a terminal state. |
+| `wait-timeout`   | no       | `1800`                                             | Maximum seconds to wait for the queue job to reach a terminal state (shared with the publish wait). |
 | `github-token`   | no       | —                                                  | GitHub token used to post (and update in place) a PR comment linking to the updated editions, typically `${{ github.token }}`. Requires `pull-requests: write`. Omitted ⇒ commenting disabled. |
 | `comment-on-pr`  | no       | `true`                                             | Post the PR comment (`true`/`false`). When `false`, commenting is disabled even if `github-token` is set — for dev-server workflows that should keep uploading but stay silent on PRs. |
 
@@ -54,12 +54,20 @@ The action performs the full upload workflow:
 | --------------- | ----------- |
 | `build-id`      | Crockford Base32 build ID. |
 | `build-url`     | HATEOAS `self_url` of the build resource. |
-| `published-url` | First `published_url` among the updated editions, sorted by slug ASC. |
+| `published-url` | `published_url` of the primary updated edition (see below), or empty when no updated edition has a URL. |
 | `job-status`    | Terminal queue-job status (`completed`, `completed_with_errors`, `failed`, `cancelled`) — or `queued` when `wait: false`. |
 | `publish-status`| Publish outcome: `published` (all editions live), `failed` (a publish job ended non-`completed`), `timed-out`, or `skipped` (`wait` off, `wait-for-publish` off, or no publish jobs). |
-| `editions-json` | JSON array of the updated editions (`slug`, `title`, `published_url`), sorted by slug. |
+| `editions-json` | JSON array of the updated editions (`slug`, `title`, `kind`, `published_url`, `publish_status`), sorted by slug. |
 
 The build-processing queue job reports the slugs it updated (`progress.editions_updated`) but not their public URLs — `published_url` lives on the edition resource. The action therefore fetches each updated edition to resolve `published-url` and `editions-json`.
+
+`published-url` is chosen deterministically among the updated editions that have a `published_url`:
+
+1. the edition that tracks the build's ref directly — a `git_ref` edition matching the build's `git_ref`, or an `alternate_git_ref` edition matching both `git_ref` and `alternate_name` (e.g. the `tickets-DM-N` edition for a ticket branch, or the `v1.2.0` edition for a release tag rather than the `1` / `1.2` aggregates);
+2. otherwise the `main` edition (`kind: main`);
+3. otherwise the first by slug ASC.
+
+Slug ASC is the tiebreak at every level. In `editions-json`, `kind` is the server's edition kind (`main`, `release`, `draft`, `major`, `minor`, `alternate`) and `publish_status` is the server's per-edition publish state (`pending`, `publishing`, `published`, `failed`, or `null` if never published). It is read after the publish wait, so with `wait-for-publish: false` it is typically still `pending` or `publishing`. An edition whose resource could not be fetched appears as a slug-only entry.
 
 `completed_with_errors` is treated as **success** for the step result; the action emits a `core.warning()` annotation summarizing the job errors. Workflows that need strict behavior should gate downstream steps on `job-status == 'completed'`.
 
@@ -160,11 +168,18 @@ pnpm build            # bundle to dist/ via esbuild (scripts/build.mjs)
 
 The repository commits both `generated/api-types.ts` and the bundled `dist/`. CI rebuilds them and runs `git diff --exit-code` to fail PRs that haven't been updated.
 
+CI also runs an end-to-end smoke test (`upload-smoke-test` in `ci.yml`): it executes the action from the checkout's committed `dist/` against the roundtable-dev Docverse server, uploading a small generated site to the `docverse-upload-ci` project in the `jsc-test-20260807` org, then asserts the outputs and fetches the published site. It authenticates with the `DOCVERSE_DEV_TOKEN` secret, a token for the `bot-docverse-upload-action-ci` service user (an `uploader` in that org). The secret exists as both an Actions and a Dependabot secret; fork PRs skip the job because they cannot read secrets.
+
 ### Updating the OpenAPI spec
 
-1. Drop a fresh upstream spec into the repo root as `docverse-openapi.json` (or any path).
+1. Fetch the spec from the deployed server. The endpoint requires a Gafaelfawr bearer token, so use an HTTP client with a stored token, e.g. with [HTTPie](https://httpie.io) sessions:
+
+   ```sh
+   http -A store --body get https://roundtable.lsst.cloud/docverse/api/openapi.json > docverse-openapi.json
+   ```
+
 2. Run `pnpm prep-openapi` to rewrite the paths (strip the `/docverse/api` prefix) and write `openapi.json`.
-3. Run `pnpm generate-types && pnpm build`.
+3. Run `pnpm generate-types && pnpm typecheck && pnpm build`, and review the `generated/api-types.ts` diff for schema changes the client code must adopt.
 4. Commit `openapi.json`, `generated/api-types.ts`, and the rebuilt `dist/` together so the diff is reviewable.
 
 ### Releasing

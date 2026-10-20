@@ -12,10 +12,10 @@ export interface paths {
             cookie?: never;
         };
         /** List all organizations */
-        get: operations["admin_get_organizations_docverse_api_admin_orgs_get"];
+        get: operations["admin_get_organizations"];
         put?: never;
         /** Create an organization */
-        post: operations["admin_post_organization_docverse_api_admin_orgs_post"];
+        post: operations["admin_post_organization"];
         delete?: never;
         options?: never;
         head?: never;
@@ -30,11 +30,11 @@ export interface paths {
             cookie?: never;
         };
         /** Get an organization */
-        get: operations["admin_get_organization_docverse_api_admin_orgs__org__get"];
+        get: operations["admin_get_organization"];
         put?: never;
         post?: never;
         /** Delete an organization */
-        delete: operations["admin_delete_organization_docverse_api_admin_orgs__org__delete"];
+        delete: operations["admin_delete_organization"];
         options?: never;
         head?: never;
         patch?: never;
@@ -50,7 +50,32 @@ export interface paths {
         get?: never;
         put?: never;
         /** Trigger a test Sentry alert (diagnostic / validation tool) */
-        post: operations["admin_post_sentry_test_docverse_api_admin_sentry_test_post"];
+        post: operations["admin_post_sentry_test"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/orgs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List organizations the caller can access
+         * @description List organizations in which the caller holds an effective role.
+         *
+         *     Any authenticated user may call this. A caller sees each organization
+         *     where they have a direct or group membership, along with their
+         *     effective role; a superadmin sees every organization (role reported as
+         *     ``admin``). An empty list is a valid response.
+         */
+        get: operations["get_organizations"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -65,14 +90,14 @@ export interface paths {
             cookie?: never;
         };
         /** Get an organization */
-        get: operations["get_organization_docverse_api_orgs__org__get"];
+        get: operations["get_organization"];
         put?: never;
         post?: never;
         delete?: never;
         options?: never;
         head?: never;
         /** Update an organization */
-        patch: operations["patch_organization_docverse_api_orgs__org__patch"];
+        patch: operations["patch_organization"];
         trace?: never;
     };
     "/orgs/{org}/projects": {
@@ -82,11 +107,14 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List projects in an organization */
-        get: operations["get_projects_docverse_api_orgs__org__projects_get"];
+        /**
+         * List projects in an organization
+         * @description Each row embeds the project's default (``__main``) edition, so a poller reads the current build and published URL of every project from the listing alone. The listing's weak ``ETag`` tracks project clocks: it retires when a project is created, edited, deleted, or has its default edition repointed to a new build, but not on a configuration-only edit to the edition (title, tracking, ``publish_status``). A consumer that needs the edition's configuration should read the single project, whose tag covers the edition's own clock.
+         */
+        get: operations["get_projects"];
         put?: never;
         /** Create a project */
-        post: operations["post_project_docverse_api_orgs__org__projects_post"];
+        post: operations["post_project"];
         delete?: never;
         options?: never;
         head?: never;
@@ -101,15 +129,15 @@ export interface paths {
             cookie?: never;
         };
         /** Get a project */
-        get: operations["get_project_docverse_api_orgs__org__projects__project__get"];
+        get: operations["get_project"];
         put?: never;
         post?: never;
         /** Delete a project */
-        delete: operations["delete_project_docverse_api_orgs__org__projects__project__delete"];
+        delete: operations["delete_project"];
         options?: never;
         head?: never;
         /** Update a project */
-        patch: operations["patch_project_docverse_api_orgs__org__projects__project__patch"];
+        patch: operations["patch_project"];
         trace?: never;
     };
     "/orgs/{org}/projects/{project}/builds": {
@@ -120,10 +148,10 @@ export interface paths {
             cookie?: never;
         };
         /** List builds for a project */
-        get: operations["get_builds_docverse_api_orgs__org__projects__project__builds_get"];
+        get: operations["get_builds"];
         put?: never;
         /** Create a build */
-        post: operations["post_build_docverse_api_orgs__org__projects__project__builds_post"];
+        post: operations["post_build"];
         delete?: never;
         options?: never;
         head?: never;
@@ -138,15 +166,46 @@ export interface paths {
             cookie?: never;
         };
         /** Get a build */
-        get: operations["get_build_docverse_api_orgs__org__projects__project__builds__build__get"];
+        get: operations["get_build"];
         put?: never;
         post?: never;
         /** Delete a build */
-        delete: operations["delete_build_docverse_api_orgs__org__projects__project__builds__build__delete"];
+        delete: operations["delete_build"];
         options?: never;
         head?: never;
         /** Update a build (signal upload complete) */
-        patch: operations["patch_build_docverse_api_orgs__org__projects__project__builds__build__patch"];
+        patch: operations["patch_build"];
+        trace?: never;
+    };
+    "/orgs/{org}/projects/{project}/builds/{build}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Restore a soft-deleted build
+         * @description Undo a ``DELETE`` while the build's content is still on the store.
+         *
+         *     The surface behind the "restorable until purged" promise
+         *     ``date_deleted`` makes: it clears the stamp and the build is an
+         *     ordinary, listable, roll-back-able build again. Admin-only, like
+         *     the ``DELETE`` it reverses.
+         *
+         *     A build whose ``date_purged`` is set answers 409 rather than 200 —
+         *     the ``purgatory_cleanup`` sweep has reclaimed its tree and tarball,
+         *     and no row edit brings those back. A build that was never deleted
+         *     answers 404, since this endpoint addresses only the rows ordinary
+         *     reads hide.
+         */
+        post: operations["post_build_restore"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/orgs/{org}/projects/{project}/editions": {
@@ -157,10 +216,10 @@ export interface paths {
             cookie?: never;
         };
         /** List editions for a project */
-        get: operations["get_editions_docverse_api_orgs__org__projects__project__editions_get"];
+        get: operations["get_editions"];
         put?: never;
         /** Create an edition */
-        post: operations["post_edition_docverse_api_orgs__org__projects__project__editions_post"];
+        post: operations["post_edition"];
         delete?: never;
         options?: never;
         head?: never;
@@ -175,15 +234,45 @@ export interface paths {
             cookie?: never;
         };
         /** Get an edition */
-        get: operations["get_edition_docverse_api_orgs__org__projects__project__editions__edition__get"];
+        get: operations["get_edition"];
         put?: never;
         post?: never;
         /** Delete an edition */
-        delete: operations["delete_edition_docverse_api_orgs__org__projects__project__editions__edition__delete"];
+        delete: operations["delete_edition"];
         options?: never;
         head?: never;
-        /** Update an edition */
-        patch: operations["patch_edition_docverse_api_orgs__org__projects__project__editions__edition__patch"];
+        /**
+         * Update an edition
+         * @description Update an edition's metadata, or override the build it serves.
+         *
+         *     A ``build`` in the payload is an emergency override: it points the
+         *     edition at that build even if the build is not in the edition's
+         *     history and even if it is older than the one being served.
+         *
+         *     Naming the build the edition **already serves** is answered with
+         *     ``200`` and the unchanged edition, on the same reasoning as
+         *     ``POST .../rollback``, and decided the same way — under the
+         *     edition's row lock, so an override racing another operator's
+         *     repoint repoints for real rather than reporting a build the
+         *     edition no longer serves. Such a request is otherwise inert, and
+         *     inert all the way out: no history entry, no ``publish_edition``
+         *     job, no ``edition_lifecycle`` event, no ``dashboard_build``, and
+         *     the project's ``date_updated`` stays where it was, so a consumer
+         *     polling ``GET /orgs/{org}/projects`` with ``updated_since`` or an
+         *     ``ETag`` is not told to refetch a project whose content did not
+         *     move. The exception, again as for rollback, is a publish that
+         *     **failed**: re-requesting the served build is the only way to retry
+         *     it, so it records a history entry, returns the edition to
+         *     ``pending``, enqueues the job, and announces itself as the change
+         *     it is — without moving the project's clock.
+         *
+         *     Only a payload with nothing in it but that already-current
+         *     ``build`` is inert, though. A metadata field alongside it is
+         *     applied, and its write is a real update: it sets the fields it
+         *     names whatever their values, so the edition's own ``date_updated``
+         *     moves and the event and dashboard rebuild are owed.
+         */
+        patch: operations["patch_edition"];
         trace?: never;
     };
     "/orgs/{org}/projects/{project}/editions/{edition}/history": {
@@ -194,7 +283,7 @@ export interface paths {
             cookie?: never;
         };
         /** List build history for an edition */
-        get: operations["get_edition_history_docverse_api_orgs__org__projects__project__editions__edition__history_get"];
+        get: operations["get_edition_history"];
         put?: never;
         post?: never;
         delete?: never;
@@ -212,8 +301,49 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Roll back an edition to a previous build */
-        post: operations["post_edition_rollback_docverse_api_orgs__org__projects__project__editions__edition__rollback_post"];
+        /**
+         * Roll back an edition to a previous build
+         * @description Point an edition back at a build already in its history.
+         *
+         *     Naming the build the edition **already serves** is answered with
+         *     ``200`` and the unchanged edition, not a ``409``: the request's
+         *     postcondition already holds, and an operator retrying after a
+         *     dropped connection — or two operators reacting to the same
+         *     incident — should not have to tell a conflict from a success.
+         *     Whether it already serves that build is decided under the
+         *     edition's row lock, so a rollback racing another operator's
+         *     repoint answers on what that repoint actually left behind: an
+         *     edition that has moved on is rolled back for real, rather than
+         *     handed a ``200`` naming a build it no longer serves. The response
+         *     is the edition as it stands, so its ``publish_status`` reports the
+         *     real state of the publish rather than a ``pending`` nothing will
+         *     clear.
+         *
+         *     Such a request is otherwise inert, and inert all the way out: it
+         *     records no history entry, enqueues no ``publish_edition`` job,
+         *     publishes no ``edition_lifecycle`` event, enqueues no
+         *     ``dashboard_build``, and leaves the project's ``date_updated``
+         *     where it was, so a consumer polling ``GET /orgs/{org}/projects``
+         *     with ``updated_since`` or an ``ETag`` is not told to refetch a
+         *     project whose content did not move. The last two matter because
+         *     this endpoint invites the retry: the metric would report a rollback
+         *     with no history row behind it, and the dashboard enqueue dedupes
+         *     only against a job still queued or in flight, so a client retrying
+         *     a dropped connection would otherwise buy a full dashboard render
+         *     and object-store upload per attempt.
+         *
+         *     The exception is a publish that **failed**: re-requesting the build
+         *     being served is the only way to retry it, so that request does
+         *     record a history entry, return the edition to ``pending``, enqueue
+         *     the job, and announce itself as the change it is — still without
+         *     moving the project's clock, since the build being served is the
+         *     same one.
+         *
+         *     A build that is not in this edition's history is still a ``404``,
+         *     checked first: an emergency ``build`` override can leave an edition
+         *     serving a build that rollback was never offered.
+         */
+        post: operations["post_edition_rollback"];
         delete?: never;
         options?: never;
         head?: never;
@@ -228,10 +358,10 @@ export interface paths {
             cookie?: never;
         };
         /** List organization members */
-        get: operations["get_members_docverse_api_orgs__org__members_get"];
+        get: operations["get_members"];
         put?: never;
         /** Add an organization member */
-        post: operations["post_member_docverse_api_orgs__org__members_post"];
+        post: operations["post_member"];
         delete?: never;
         options?: never;
         head?: never;
@@ -246,14 +376,23 @@ export interface paths {
             cookie?: never;
         };
         /** Get an organization member */
-        get: operations["get_member_docverse_api_orgs__org__members__member__get"];
+        get: operations["get_member"];
         put?: never;
         post?: never;
         /** Remove an organization member */
-        delete: operations["delete_member_docverse_api_orgs__org__members__member__delete"];
+        delete: operations["delete_member"];
         options?: never;
         head?: never;
-        patch?: never;
+        /**
+         * Update an organization member
+         * @description Update a member's role.
+         *
+         *     Only ``role`` is mutable; ``principal`` and ``principal_type`` are
+         *     immutable and rejected by the request model's ``extra="forbid"``.
+         *     Follows the merge-patch house style: unset fields leave the member
+         *     unchanged.
+         */
+        patch: operations["patch_member"];
         trace?: never;
     };
     "/orgs/{org}/credentials": {
@@ -264,10 +403,10 @@ export interface paths {
             cookie?: never;
         };
         /** List organization credentials */
-        get: operations["get_credentials_docverse_api_orgs__org__credentials_get"];
+        get: operations["get_credentials"];
         put?: never;
         /** Create an organization credential */
-        post: operations["post_credential_docverse_api_orgs__org__credentials_post"];
+        post: operations["post_credential"];
         delete?: never;
         options?: never;
         head?: never;
@@ -282,11 +421,11 @@ export interface paths {
             cookie?: never;
         };
         /** Get an organization credential */
-        get: operations["get_credential_docverse_api_orgs__org__credentials__credential__get"];
+        get: operations["get_credential"];
         put?: never;
         post?: never;
         /** Delete an organization credential */
-        delete: operations["delete_credential_docverse_api_orgs__org__credentials__credential__delete"];
+        delete: operations["delete_credential"];
         options?: never;
         head?: never;
         patch?: never;
@@ -300,10 +439,10 @@ export interface paths {
             cookie?: never;
         };
         /** List organization services */
-        get: operations["get_services_docverse_api_orgs__org__services_get"];
+        get: operations["get_services"];
         put?: never;
         /** Create an organization service */
-        post: operations["post_service_docverse_api_orgs__org__services_post"];
+        post: operations["post_service"];
         delete?: never;
         options?: never;
         head?: never;
@@ -318,15 +457,15 @@ export interface paths {
             cookie?: never;
         };
         /** Get an organization service */
-        get: operations["get_service_docverse_api_orgs__org__services__service__get"];
+        get: operations["get_service"];
         put?: never;
         post?: never;
         /** Delete an organization service */
-        delete: operations["delete_service_docverse_api_orgs__org__services__service__delete"];
+        delete: operations["delete_service"];
         options?: never;
         head?: never;
         /** Update an organization service */
-        patch: operations["patch_service_docverse_api_orgs__org__services__service__patch"];
+        patch: operations["patch_service"];
         trace?: never;
     };
     "/orgs/{org}/projects/{project}/dashboard/rebuild": {
@@ -339,7 +478,7 @@ export interface paths {
         get?: never;
         put?: never;
         /** Rebuild a project's dashboard */
-        post: operations["post_dashboard_rebuild_docverse_api_orgs__org__projects__project__dashboard_rebuild_post"];
+        post: operations["post_dashboard_rebuild"];
         delete?: never;
         options?: never;
         head?: never;
@@ -356,7 +495,7 @@ export interface paths {
         get?: never;
         put?: never;
         /** Rebuild every project's dashboard in an organization */
-        post: operations["post_org_dashboard_rebuild_docverse_api_orgs__org__dashboard_rebuild_post"];
+        post: operations["post_org_dashboard_rebuild"];
         delete?: never;
         options?: never;
         head?: never;
@@ -371,12 +510,12 @@ export interface paths {
             cookie?: never;
         };
         /** Get the organization's default dashboard-template binding */
-        get: operations["get_org_dashboard_template_docverse_api_orgs__org__dashboard_template_get"];
+        get: operations["get_org_dashboard_template"];
         /** Create or update the org-default dashboard-template binding */
-        put: operations["put_org_dashboard_template_docverse_api_orgs__org__dashboard_template_put"];
+        put: operations["put_org_dashboard_template"];
         post?: never;
         /** Delete the organization's default dashboard-template binding */
-        delete: operations["delete_org_dashboard_template_docverse_api_orgs__org__dashboard_template_delete"];
+        delete: operations["delete_org_dashboard_template"];
         options?: never;
         head?: never;
         patch?: never;
@@ -392,7 +531,7 @@ export interface paths {
         get?: never;
         put?: never;
         /** Force a re-sync of the org-default dashboard-template binding */
-        post: operations["sync_org_dashboard_template_docverse_api_orgs__org__dashboard_template_sync_post"];
+        post: operations["sync_org_dashboard_template"];
         delete?: never;
         options?: never;
         head?: never;
@@ -407,12 +546,12 @@ export interface paths {
             cookie?: never;
         };
         /** Get a project's dashboard-template binding override */
-        get: operations["get_project_dashboard_template_docverse_api_orgs__org__projects__project__dashboard_template_get"];
+        get: operations["get_project_dashboard_template"];
         /** Create or update a project's dashboard-template binding override */
-        put: operations["put_project_dashboard_template_docverse_api_orgs__org__projects__project__dashboard_template_put"];
+        put: operations["put_project_dashboard_template"];
         post?: never;
         /** Delete a project's dashboard-template binding override */
-        delete: operations["delete_project_dashboard_template_docverse_api_orgs__org__projects__project__dashboard_template_delete"];
+        delete: operations["delete_project_dashboard_template"];
         options?: never;
         head?: never;
         patch?: never;
@@ -428,7 +567,7 @@ export interface paths {
         get?: never;
         put?: never;
         /** Force a re-sync of a project-override dashboard-template binding */
-        post: operations["sync_project_dashboard_template_docverse_api_orgs__org__projects__project__dashboard_template_sync_post"];
+        post: operations["sync_project_dashboard_template"];
         delete?: never;
         options?: never;
         head?: never;
@@ -443,10 +582,70 @@ export interface paths {
             cookie?: never;
         };
         /** Get the organization's LTD Keeper sync configuration */
-        get: operations["get_org_keeper_sync_config_docverse_api_orgs__org__keeper_sync_get"];
-        /** Replace the organization's LTD Keeper sync configuration */
-        put: operations["put_org_keeper_sync_config_docverse_api_orgs__org__keeper_sync_put"];
+        get: operations["get_org_keeper_sync_config"];
+        /**
+         * Replace the organization's LTD Keeper sync configuration
+         * @description Replace the org's keeper-sync config wholesale.
+         *
+         *     The request body is :class:`KeeperSyncConfigWrite` rather than the
+         *     response's :class:`KeeperSyncConfig`: the response model ignores
+         *     unknown keys so an older reader can load a config a newer server
+         *     wrote, while the request body keeps ``extra="forbid"`` so a
+         *     misspelled field is a 422 instead of a value silently dropped on its
+         *     way into the database.
+         */
+        put: operations["put_org_keeper_sync_config"];
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Partially update the LTD Keeper sync configuration
+         * @description Merge-patch the org's keeper-sync config.
+         *
+         *     Applies JSON-Merge-Patch semantics: omitted fields are left untouched;
+         *     ``project_slugs``, when provided, replaces the stored array wholesale (no
+         *     append). ``PUT`` remains available for a full replacement.
+         */
+        patch: operations["patch_org_keeper_sync_config"];
+        trace?: never;
+    };
+    "/orgs/{org}/keeper-sync/scope-preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Preview what a keeper-sync scope resolves to on LTD
+         * @description Resolve a candidate keeper-sync scope against the live LTD listing.
+         *
+         *     Side-effect-free: the candidate config is **not** persisted and no
+         *     jobs are enqueued. This matters because saving a wider scope is not
+         *     inert — the tier crons act on the stored config at their next tick —
+         *     so an operator rolling the lsst.io migration out in waves checks a
+         *     candidate here first, then ``PATCH``es it, then launches a backfill.
+         *
+         *     The preview works whether or not sync is ``enabled``. Any failure
+         *     to read the live LTD product listing — unreachable, an error
+         *     status, or a 200 whose body is not a product listing — is reported
+         *     as a 502 naming LTD's own status, never a Docverse 500.
+         *
+         *     The LTD listing always comes from the **stored** config's
+         *     ``ltd_base_url``; a body that sets that field is a 422 naming it.
+         *     Previewing an operator-supplied base URL would make this endpoint a
+         *     status oracle for whatever the pod can reach.
+         *
+         *     Two short transactions, not one, with the LTD fetch in the gap:
+         *     holding a transaction open across a third-party call that can hang
+         *     for an httpx timeout pins a pooled Postgres connection ``idle in
+         *     transaction`` — and a slow LTD is exactly when operators retry the
+         *     preview.
+         */
+        post: operations["post_org_keeper_sync_scope_preview"];
         delete?: never;
         options?: never;
         head?: never;
@@ -461,10 +660,10 @@ export interface paths {
             cookie?: never;
         };
         /** List LTD Keeper sync runs for an organization */
-        get: operations["get_org_keeper_sync_runs_docverse_api_orgs__org__keeper_sync_runs_get"];
+        get: operations["get_org_keeper_sync_runs"];
         put?: never;
         /** Start a new LTD Keeper backfill run */
-        post: operations["post_org_keeper_sync_run_docverse_api_orgs__org__keeper_sync_runs_post"];
+        post: operations["post_org_keeper_sync_run"];
         delete?: never;
         options?: never;
         head?: never;
@@ -479,7 +678,7 @@ export interface paths {
             cookie?: never;
         };
         /** List keeper-sync projects on an organization */
-        get: operations["get_org_keeper_sync_projects_docverse_api_orgs__org__keeper_sync_projects_get"];
+        get: operations["get_org_keeper_sync_projects"];
         put?: never;
         post?: never;
         delete?: never;
@@ -496,7 +695,7 @@ export interface paths {
             cookie?: never;
         };
         /** Get the keeper-sync status of one LTD project on this org */
-        get: operations["get_org_keeper_sync_project_status_docverse_api_orgs__org__keeper_sync_projects__ltd_slug__get"];
+        get: operations["get_org_keeper_sync_project_status"];
         put?: never;
         post?: never;
         delete?: never;
@@ -513,7 +712,7 @@ export interface paths {
             cookie?: never;
         };
         /** List Docverse editions for one keeper-sync project */
-        get: operations["get_org_keeper_sync_project_editions_docverse_api_orgs__org__keeper_sync_projects__ltd_slug__editions_get"];
+        get: operations["get_org_keeper_sync_project_editions"];
         put?: never;
         post?: never;
         delete?: never;
@@ -532,7 +731,7 @@ export interface paths {
         get?: never;
         put?: never;
         /** Trigger an immediate sync of one LTD project */
-        post: operations["post_org_keeper_sync_project_refresh_docverse_api_orgs__org__keeper_sync_projects__ltd_slug__refresh_post"];
+        post: operations["post_org_keeper_sync_project_refresh"];
         delete?: never;
         options?: never;
         head?: never;
@@ -547,7 +746,7 @@ export interface paths {
             cookie?: never;
         };
         /** Get an LTD Keeper sync run with aggregate counters */
-        get: operations["get_org_keeper_sync_run_docverse_api_orgs__org__keeper_sync_runs__run__get"];
+        get: operations["get_org_keeper_sync_run"];
         put?: never;
         post?: never;
         delete?: never;
@@ -564,7 +763,7 @@ export interface paths {
             cookie?: never;
         };
         /** List sync tombstones for an organization */
-        get: operations["get_org_keeper_sync_tombstones_docverse_api_orgs__org__keeper_sync_tombstones_get"];
+        get: operations["get_org_keeper_sync_tombstones"];
         put?: never;
         post?: never;
         delete?: never;
@@ -584,7 +783,7 @@ export interface paths {
         put?: never;
         post?: never;
         /** Clear a sync tombstone */
-        delete: operations["delete_org_keeper_sync_tombstone_docverse_api_orgs__org__keeper_sync_tombstones__tombstone__delete"];
+        delete: operations["delete_org_keeper_sync_tombstone"];
         options?: never;
         head?: never;
         patch?: never;
@@ -598,7 +797,7 @@ export interface paths {
             cookie?: never;
         };
         /** List jobs */
-        get: operations["get_org_jobs_docverse_api_orgs__org__jobs_get"];
+        get: operations["get_org_jobs"];
         put?: never;
         post?: never;
         delete?: never;
@@ -620,7 +819,7 @@ export interface paths {
          *
          *     A companion subresource, ``GET /orgs/{org}/jobs/{job}/events``, is **reserved** for a future ``text/event-stream`` (SSE) endpoint that streams live status updates for this job. It is documented here so clients can anticipate the path, but it is not yet implemented and currently returns ``404``. A dedicated subresource is used rather than a query parameter such as ``?sse=true`` because switching the response media type on a query parameter conflates the resource with its representation, and a browser ``EventSource`` cannot set an ``Accept`` header.
          */
-        get: operations["get_org_job_docverse_api_orgs__org__jobs__job__get"];
+        get: operations["get_org_job"];
         put?: never;
         post?: never;
         delete?: never;
@@ -633,6 +832,141 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /**
+         * AdminOrganization
+         * @description Admin organization response model with HATEOAS self_url.
+         *
+         *     Distinct from the orgs-scoped ``Organization`` model: the admin
+         *     shape adds ``org_url`` (a link to the org-scoped endpoint) and omits
+         *     the orgs sub-collection links, so it registers as its own schema.
+         */
+        AdminOrganization: {
+            /**
+             * Self Url
+             * @description URL to this admin organization resource.
+             * @example https://example.org/docverse/api/admin/orgs/lsst
+             */
+            self_url: string;
+            /**
+             * Dashboard Template Url
+             * @description URL to the organization's default dashboard-template binding.
+             * @example https://example.org/docverse/api/orgs/lsst/dashboard-template
+             */
+            dashboard_template_url: string;
+            /**
+             * Keeper Sync Url
+             * @description URL to the organization's LTD Keeper sync configuration.
+             * @example https://example.org/docverse/api/orgs/lsst/keeper-sync
+             */
+            keeper_sync_url: string;
+            /**
+             * Id
+             * @description Public Crockford Base32 identifier for the organization. Stable for the life of the organization, so it still identifies this resource if the slug is ever renamed. Path parameters use the slug, not this id.
+             * @example 1vzr-eky0-0vvf-43
+             */
+            id: string;
+            /**
+             * Slug
+             * @description URL-safe identifier for the organization.
+             * @example lsst
+             */
+            slug: string;
+            /**
+             * Title
+             * @description Display title for the organization.
+             * @example Rubin Observatory
+             */
+            title: string;
+            /**
+             * Base Domain
+             * @description Base domain for documentation sites.
+             * @example lsst.io
+             */
+            base_domain: string;
+            /** @description URL scheme for project documentation. */
+            url_scheme: components["schemas"]["UrlScheme"];
+            /**
+             * Root Path Prefix
+             * @description Root path prefix when using path_prefix URL scheme.
+             */
+            root_path_prefix: string;
+            /**
+             * Slug Rewrite Rules
+             * @description Rules for rewriting project slugs in URLs.
+             */
+            slug_rewrite_rules: {
+                [key: string]: unknown;
+            }[] | null;
+            /** @description Rules governing build lifecycle. */
+            lifecycle_rules: components["schemas"]["LifecycleRuleSet"] | null;
+            /** @description Default configuration for the __main edition on new projects. */
+            default_edition_config?: components["schemas"]["DefaultEditionConfig"] | null;
+            /** @description Org-level defaults for which editions Docverse auto-creates when a build lands. ``null`` means the built-in defaults apply. A project's own value overrides this whole-object. */
+            edition_autocreation?: components["schemas"]["EditionAutocreationConfig"] | null;
+            /**
+             * Purgatory Retention
+             * @description Duration in seconds to retain inactive builds in purgatory before deletion.
+             */
+            purgatory_retention: number;
+            /**
+             * @description Object storage service used for publishing.
+             * @example {
+             *       "category": "object_storage",
+             *       "label": "docs-bucket",
+             *       "provider": "aws_s3",
+             *       "self_url": "https://example.org/docverse/api/orgs/lsst/services/docs-bucket"
+             *     }
+             */
+            publishing_store?: components["schemas"]["OrganizationServiceSummary"] | null;
+            /**
+             * @description Object storage service used for staging uploads.
+             * @example {
+             *       "category": "object_storage",
+             *       "label": "staging-bucket",
+             *       "provider": "aws_s3",
+             *       "self_url": "https://example.org/docverse/api/orgs/lsst/services/staging-bucket"
+             *     }
+             */
+            staging_store?: components["schemas"]["OrganizationServiceSummary"] | null;
+            /**
+             * @description CDN service for cache purging and edge data.
+             * @example {
+             *       "category": "cdn",
+             *       "label": "cdn",
+             *       "provider": "fastly",
+             *       "self_url": "https://example.org/docverse/api/orgs/lsst/services/cdn"
+             *     }
+             */
+            cdn_service?: components["schemas"]["OrganizationServiceSummary"] | null;
+            /**
+             * @description DNS service for subdomain registration.
+             * @example {
+             *       "category": "dns",
+             *       "label": "dns",
+             *       "provider": "route53",
+             *       "self_url": "https://example.org/docverse/api/orgs/lsst/services/dns"
+             *     }
+             */
+            dns_service?: components["schemas"]["OrganizationServiceSummary"] | null;
+            /**
+             * Date Created
+             * Format: date-time
+             * @description Timestamp when the organization was created.
+             */
+            date_created: string;
+            /**
+             * Date Updated
+             * Format: date-time
+             * @description Timestamp of the most recent update.
+             */
+            date_updated: string;
+            /**
+             * Org Url
+             * @description URL to the org-scoped API endpoint.
+             * @example https://example.org/docverse/api/orgs/lsst
+             */
+            org_url: string;
+        };
         /**
          * AwsCredentials
          * @description AWS credential payload.
@@ -683,21 +1017,25 @@ export interface components {
             /**
              * Self Url
              * @description URL to this build resource.
+             * @example https://example.org/docverse/api/orgs/lsst/projects/pipelines/builds/1txq-55pj-1x5m-16
              */
             self_url: string;
             /**
              * Project Url
              * @description URL to the parent project.
+             * @example https://example.org/docverse/api/orgs/lsst/projects/pipelines
              */
             project_url: string;
             /**
              * Id
              * @description Public Crockford Base32 identifier for the build.
+             * @example 1txq-55pj-1x5m-16
              */
             id: string;
             /**
              * Git Ref
              * @description Git ref (branch, tag, or SHA) for this build.
+             * @example main
              */
             git_ref: string;
             /**
@@ -707,7 +1045,8 @@ export interface components {
             alternate_name?: string | null;
             /**
              * Content Hash
-             * @description SHA-256 hash of the uploaded tarball.
+             * @description Content identity of the build. On a 'completed' build this is the server-computed digest of the build's file manifest, which is what lets the same content converge on one identity however it arrived. Before completion — while the build is 'pending' or 'processing' — it holds the deprecated client-supplied tarball digest, or a placeholder of 64 zeros when the client supplied none, and describes nothing about the content.
+             * @example sha256:abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789
              */
             content_hash: string;
             /** @description Current status of the build. */
@@ -715,11 +1054,13 @@ export interface components {
             /**
              * Upload Url
              * @description Pre-signed URL for uploading the build tarball.
+             * @example https://staging-bucket.s3.amazonaws.com/uploads/1txq-55pj-1x5m-16.tar.gz?X-Amz-Signature=0ad34c
              */
             upload_url?: string | null;
             /**
              * Job Url
              * @description URL to the job processing this build.
+             * @example https://example.org/docverse/api/orgs/lsst/jobs/1vg8-zbgy-3rhq-52
              */
             job_url?: string | null;
             /**
@@ -735,6 +1076,7 @@ export interface components {
             /**
              * Uploader
              * @description Username of the person who uploaded the build.
+             * @example jdoe
              */
             uploader: string;
             /** @description Arbitrary metadata annotations for the build. */
@@ -755,6 +1097,11 @@ export interface components {
              * @description Timestamp when processing completed or failed.
              */
             date_completed?: string | null;
+            /**
+             * Date Purged
+             * @description Timestamp when the build's object-store content was permanently reclaimed by the purgatory sweep. Null while the content is still there, including for every build that has never been deleted, which is also what makes a soft-deleted build restorable. Once set, the row is a tombstone: the build's files are gone and cannot be brought back.
+             */
+            date_purged?: string | null;
         };
         /**
          * BuildAnnotations
@@ -767,21 +1114,25 @@ export interface components {
             /**
              * Commit Sha
              * @description Git commit SHA for the build.
+             * @example 6c8b2f01a5d34e1c9f0b2ad37e8c5d914f6a7b3c
              */
             commit_sha?: string | null;
             /**
              * Github Repository
              * @description GitHub repository (owner/repo) that produced the build.
+             * @example lsst/pipelines_lsst_io
              */
             github_repository?: string | null;
             /**
              * Github Run Id
              * @description GitHub Actions run ID.
+             * @example 16768139904
              */
             github_run_id?: string | null;
             /**
              * Github Run Url
              * @description Full URL to the GitHub Actions run.
+             * @example https://github.com/lsst/pipelines_lsst_io/actions/runs/16768139904
              */
             github_run_url?: string | null;
             /**
@@ -831,10 +1182,11 @@ export interface components {
             alternate_name?: string | null;
             /**
              * Content Hash
-             * @description SHA-256 hash of the uploaded tarball.
+             * @deprecated
+             * @description Deprecated transport-integrity digest of the uploaded tarball. Optional, and makes no claim about the build's content identity: the server computes that itself while processing the upload and overwrites this value when the build completes. Supply it only as provenance for what the client believed it sent; omitting it is preferred, and it will be removed in a future release. When present it must still be a 'sha256:'-prefixed hex digest.
              * @example sha256:abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789
              */
-            content_hash: string;
+            content_hash?: string | null;
             /** @description Arbitrary metadata annotations for the build. */
             annotations?: components["schemas"]["BuildAnnotations"] | null;
         };
@@ -908,15 +1260,49 @@ export interface components {
              * @description ``True`` when edition tracking failed for this build.
              */
             edition_tracking_error?: boolean | null;
+            /**
+             * Deleted Skipped
+             * @description ``True`` when the build was deleted before it could be published, so it was cancelled instead. Set whether the delete landed before the worker picked the job up or while the worker was still uploading.
+             */
+            deleted_skipped?: boolean | null;
+            /**
+             * @description Status the build was found in when the worker stood down, on a job that completed without publishing because something else retired the build first. ``missing`` means the row was gone by the time the worker looked. ``null`` (the key omitted) on jobs that were never retired.
+             * @example superseded
+             */
+            retired_status?: components["schemas"]["RetiredBuildStatus"] | null;
         } & {
             [key: string]: unknown;
         };
         /**
          * BuildStatus
          * @description Status of a documentation build.
+         *
+         *     - ``pending`` — the build row exists and Docverse is waiting for the
+         *       tarball upload.
+         *     - ``uploaded`` — signal value used in PATCH requests to indicate
+         *       upload completion. Never persisted or returned: the server
+         *       transitions the build directly from ``pending`` to ``processing``
+         *       when it receives this signal.
+         *     - ``processing`` — a background job is unpacking the upload and
+         *       updating tracking editions.
+         *     - ``completed`` — processing finished successfully.
+         *     - ``failed`` — processing failed; see the build's job for errors.
+         *     - ``superseded`` — a newer build for the same ``(project, git_ref)``
+         *       took over before this one was processed. Nothing was wrong with
+         *       the build; it will never be published.
+         *     - ``cancelled`` — the build was deleted before processing finished.
+         *       It will never be published.
+         *
+         *     The members split into two halves plus one signal value, and
+         *     :attr:`is_unfinished` / :attr:`is_terminal` are the single
+         *     definition of that split. Server-side it decides which statuses a
+         *     transition may start from, which ones stamp ``date_completed``, and
+         *     which ones make a retirement helper stand down rather than write;
+         *     client-side it is what "has this build stopped moving?" means to
+         *     anything polling a build.
          * @enum {string}
          */
-        BuildStatus: "pending" | "uploaded" | "processing" | "completed" | "failed";
+        BuildStatus: "pending" | "uploaded" | "processing" | "completed" | "failed" | "superseded" | "cancelled";
         /**
          * BuildUpdate
          * @description Request model for updating a build (PATCH).
@@ -1026,6 +1412,13 @@ export interface components {
         /**
          * CredentialProvider
          * @description Cloud provider for authentication credentials.
+         *
+         *     - ``aws`` — Amazon Web Services (S3, Route 53, CloudFront).
+         *     - ``cloudflare`` — Cloudflare (R2, Workers, DNS).
+         *     - ``fastly`` — Fastly CDN.
+         *     - ``gcp`` — Google Cloud Platform (GCS, Cloud CDN).
+         *     - ``s3`` — generic S3-compatible storage (access key ID + secret
+         *       access key).
          * @enum {string}
          */
         CredentialProvider: "aws" | "cloudflare" | "fastly" | "gcp" | "s3";
@@ -1037,11 +1430,13 @@ export interface components {
             /**
              * Job Id
              * @description Public Base32 identifier for the enqueued job.
+             * @example 1vg8-zbgy-3rhq-52
              */
             job_id: string;
             /**
              * Job Url
              * @description URL to the enqueued job resource.
+             * @example https://example.org/docverse/api/orgs/lsst/jobs/1vg8-zbgy-3rhq-52
              */
             job_url: string;
         };
@@ -1080,36 +1475,43 @@ export interface components {
             /**
              * Self Url
              * @description URL to this binding resource.
+             * @example https://example.org/docverse/api/orgs/lsst/dashboard-template
              */
             self_url: string;
             /**
              * Web Url
              * @description URL of the template's location in the GitHub browse UI. Always present once a binding exists; derived from the binding's source coordinates rather than the synced content row, so it is meaningful before the first sync.
+             * @example https://github.com/lsst/templates/tree/main/dashboard
              */
             web_url: string;
             /**
              * Github Owner
              * @description GitHub owner (user or org).
+             * @example lsst
              */
             github_owner: string;
             /**
              * Github Repo
              * @description GitHub repository name.
+             * @example templates
              */
             github_repo: string;
             /**
              * Github Ref
              * @description Git ref (branch, tag, or SHA).
+             * @example main
              */
             github_ref: string;
             /**
              * Root Path
              * @description Path within the repo where the template lives.
+             * @example /dashboard
              */
             root_path: string;
             /**
              * Commit Sha
              * @description Commit SHA of the most-recently-synced template content. ``None`` until the first successful sync.
+             * @example 6c8b2f01a5d34e1c9f0b2ad37e8c5d914f6a7b3c
              */
             commit_sha?: string | null;
             /**
@@ -1125,21 +1527,25 @@ export interface components {
             /**
              * Last Sync Job Url
              * @description URL of the most-recently-enqueued ``dashboard_sync`` job, or ``None`` if no sync has been enqueued for this binding yet (or the referenced job has been pruned).
+             * @example https://example.org/docverse/api/orgs/lsst/jobs/1vg8-zbgy-3rhq-52
              */
             last_sync_job_url?: string | null;
             /**
              * Github Owner Id
              * @description GitHub's stable numeric ID for the owner. Captured on first successful sync; ``None`` for un-synced bindings. Informational only — the public API remains keyed on ``github_owner``.
+             * @example 1745714
              */
             github_owner_id?: number | null;
             /**
              * Github Repo Id
              * @description GitHub's stable numeric ID for the repository. Captured on first successful sync; ``None`` for un-synced bindings. Informational only — the public API remains keyed on ``github_repo``.
+             * @example 73902645
              */
             github_repo_id?: number | null;
             /**
              * Github Installation Id
              * @description GitHub App installation ID for the repository. Captured on first successful sync; ``None`` for un-synced bindings or when the GitHub App is not installed. Informational only.
+             * @example 42150081
              */
             github_installation_id?: number | null;
             /**
@@ -1163,11 +1569,13 @@ export interface components {
             /**
              * Job Id
              * @description Base32 public ID of the enqueued ``dashboard_sync`` job.
+             * @example 1vg8-zbgy-3rhq-52
              */
             job_id: string;
             /**
              * Job Url
              * @description URL of the enqueued ``dashboard_sync`` job.
+             * @example https://example.org/docverse/api/orgs/lsst/jobs/1vg8-zbgy-3rhq-52
              */
             job_url: string;
         };
@@ -1214,6 +1622,13 @@ export interface components {
          *     ``date_updated`` is older than ``max_days_inactive`` days. Other
          *     edition kinds (``release``, ``main``, ``alternate``) are never
          *     candidates for this rule, regardless of staleness.
+         *
+         *     For an edition synced from LTD Keeper, ``date_updated`` is LTD's
+         *     ``date_rebuilt`` (or its ``date_created`` when LTD never rebuilt
+         *     the edition), not the moment Docverse imported it, so a draft LTD
+         *     last rebuilt long ago is a candidate however recently it was
+         *     synced. See "Timestamps mirror LTD" in the Docverse repository's
+         *     ``docs/keeper-sync-scope.md``.
          */
         DraftInactivityRule: {
             /**
@@ -1228,6 +1643,116 @@ export interface components {
             max_days_inactive: number;
         };
         /**
+         * Edition
+         * @description Response model for an edition.
+         */
+        Edition: {
+            /**
+             * Self Url
+             * @description URL to this edition resource.
+             * @example https://example.org/docverse/api/orgs/lsst/projects/pipelines/editions/v1
+             */
+            self_url: string;
+            /**
+             * Project Url
+             * @description URL to the parent project.
+             * @example https://example.org/docverse/api/orgs/lsst/projects/pipelines
+             */
+            project_url: string;
+            /**
+             * Build Url
+             * @description URL to the currently published build.
+             * @example https://example.org/docverse/api/orgs/lsst/projects/pipelines/builds/1txq-55pj-1x5m-16
+             */
+            build_url?: string | null;
+            /**
+             * Published Url
+             * @description Public URL where this edition is served.
+             * @example https://pipelines.lsst.io/v/v1
+             */
+            published_url?: string | null;
+            /**
+             * History Url
+             * @description URL to the build history for this edition.
+             * @example https://example.org/docverse/api/orgs/lsst/projects/pipelines/editions/v1/history
+             */
+            history_url: string;
+            /**
+             * Rollback Url
+             * @description URL to roll back this edition to a previous build.
+             * @example https://example.org/docverse/api/orgs/lsst/projects/pipelines/editions/v1/rollback
+             */
+            rollback_url: string;
+            /**
+             * Slug
+             * @description URL-safe identifier for the edition.
+             * @example v1
+             */
+            slug: string;
+            /**
+             * Title
+             * @description Display title for the edition.
+             * @example v1.0
+             */
+            title: string;
+            /** @description Kind of edition. */
+            kind: components["schemas"]["EditionKind"];
+            /**
+             * @description Who owns ``kind``. Read-only here — change it by PATCHing ``kind`` (which declares it) or ``kind_source`` itself (which hands it back to the system).
+             * @default derived
+             */
+            kind_source: components["schemas"]["EditionKindSource"];
+            /** @description How this edition tracks builds for automatic updates. */
+            tracking_mode: components["schemas"]["TrackingMode"];
+            /**
+             * Tracking Params
+             * @description Parameters for the tracking mode.
+             */
+            tracking_params?: {
+                [key: string]: unknown;
+            } | null;
+            /**
+             * Lifecycle Exempt
+             * @description Whether this edition is exempt from lifecycle rules.
+             */
+            lifecycle_exempt: boolean;
+            /** @description CDN publish state for the edition's current build. ``None`` when the edition has never been associated with a build or predates publish-status tracking. */
+            publish_status?: components["schemas"]["PublishStatus"] | null;
+            /**
+             * Date Created
+             * Format: date-time
+             * @description Timestamp when the edition was created.
+             */
+            date_created: string;
+            /**
+             * Date Updated
+             * Format: date-time
+             * @description Timestamp of the most recent update.
+             */
+            date_updated: string;
+        };
+        /**
+         * EditionAutocreationConfig
+         * @description Which editions Docverse auto-creates when a build lands.
+         *
+         *     Set on an organization and/or a project; the project value wins
+         *     whole-object when both are present, and ``null`` at both levels
+         *     means "use the defaults" (every knob below at its default).
+         *
+         *     Instances are frozen: the server hands out one shared default config
+         *     to every project that configures none, so a consumer mutating what it
+         *     resolved would rewrite the defaults process-wide. Derive a variant
+         *     with ``model_copy(update=...)`` instead.
+         */
+        EditionAutocreationConfig: {
+            /**
+             * Semver Aggregates
+             * @description Whether a stable semver release (e.g. ``1.2.3``) also auto-creates its ``N`` (major) and ``N.M`` (minor) aggregate editions. Set to ``false`` for projects that publish only concrete versions.
+             * @default true
+             */
+            semver_aggregates: boolean;
+        };
+        /**
          * EditionBuildHistoryResponse
          * @description Edition build history response model with HATEOAS URLs.
          */
@@ -1235,11 +1760,13 @@ export interface components {
             /**
              * Build Id
              * @description Base32-encoded public ID of the build.
+             * @example 1txq-55pj-1x5m-16
              */
             build_id: string;
             /**
              * Build Url
              * @description URL to the build resource.
+             * @example https://example.org/docverse/api/orgs/lsst/projects/pipelines/builds/1txq-55pj-1x5m-16
              */
             build_url: string;
             /**
@@ -1290,6 +1817,7 @@ export interface components {
              * @example v1.0
              */
             title: string;
+            /** @description Kind of edition. */
             kind: components["schemas"]["EditionKind"];
             /** @description How this edition tracks builds for automatic updates. */
             tracking_mode: components["schemas"]["TrackingMode"];
@@ -1310,9 +1838,37 @@ export interface components {
         /**
          * EditionKind
          * @description Kind of edition.
+         *
+         *     - ``main`` — the project's default edition (slug ``__main``), the
+         *       one served at the project's root URL.
+         *     - ``release`` — a pinned release version (e.g. ``v1.0.0``).
+         *     - ``draft`` — a work-in-progress edition, typically tracking a
+         *       development branch or ticket branch.
+         *     - ``major`` — an auto-created rollup for a major version line
+         *       (e.g. ``v1``), kept at the highest release within that line.
+         *     - ``minor`` — an auto-created rollup for a minor version line
+         *       (e.g. ``v1.2``), kept at the highest patch within that line.
+         *     - ``alternate`` — a deployment-variant edition matched only by
+         *       builds carrying the same ``alternate_name`` scope.
          * @enum {string}
          */
         EditionKind: "main" | "release" | "draft" | "major" | "minor" | "alternate";
+        /**
+         * EditionKindSource
+         * @description Who owns an edition's ``kind``.
+         *
+         *     - ``derived`` — Docverse owns it. Every sync and every tracked build
+         *       recomputes the kind from the edition's ref and the project's
+         *       slug-rewrite rules, and writes the result, so the row converges on
+         *       the current rules in both directions.
+         *     - ``declared`` — an operator owns it. The kind was set through the
+         *       editions API and no automated derivation rewrites it.
+         *
+         *     PATCH ``kind_source`` back to ``derived`` to hand a declared kind
+         *     back to the system; the next sync or tracked build re-derives it.
+         * @enum {string}
+         */
+        EditionKindSource: "derived" | "declared";
         /**
          * EditionRollback
          * @description Request body for rolling back an edition to a previous build.
@@ -1321,6 +1877,7 @@ export interface components {
             /**
              * Build
              * @description Base32 public ID of the target build.
+             * @example 1txq-55pj-1x5m-16
              */
             build: string;
         };
@@ -1340,8 +1897,10 @@ export interface components {
              * @description Display title for the edition.
              */
             title?: string | null;
-            /** @description Kind of edition. */
+            /** @description Kind of edition. Sending a kind that differs from the current one declares it, pinning the edition against automated re-derivation; echoing the kind an edition already has is a no-op. */
             kind?: components["schemas"]["EditionKind"] | null;
+            /** @description Who owns ``kind`` from now on. Send ``derived`` to hand a declared kind back to Docverse: the next sync or tracked build re-derives it from the edition's ref and the project's slug-rewrite rules. Send ``declared`` to pin the current kind without changing its value. */
+            kind_source?: components["schemas"]["EditionKindSource"] | null;
             /** @description How this edition tracks builds for automatic updates. */
             tracking_mode?: components["schemas"]["TrackingMode"] | null;
             /**
@@ -1359,6 +1918,7 @@ export interface components {
             /**
              * Build
              * @description Base32 public ID of a build to point this edition at. Emergency-override path: unlike rollback, the build does not have to be in the edition's history.
+             * @example 1txq-55pj-1x5m-16
              */
             build?: string | null;
         };
@@ -1384,10 +1944,43 @@ export interface components {
             /**
              * Edition Url
              * @description Absolute URL of the edition resource (a HATEOAS link clients follow instead of reconstructing the path). Omitted when the Docverse API base URL could not be resolved.
+             * @example https://example.org/docverse/api/orgs/lsst/projects/pipelines/editions/v1
              */
             edition_url?: string | null;
         } & {
             [key: string]: unknown;
+        };
+        /**
+         * ErrorDetail
+         * @description The detail of the error message.
+         */
+        ErrorDetail: {
+            /**
+             * Location
+             * @example [
+             *       "area",
+             *       "field"
+             *     ]
+             */
+            loc?: string[] | null;
+            /**
+             * Message
+             * @example Some error messge
+             */
+            msg: string;
+            /**
+             * Error type
+             * @example some_code
+             */
+            type: string;
+        };
+        /**
+         * ErrorModel
+         * @description A structured API error message.
+         */
+        ErrorModel: {
+            /** Detail */
+            detail: components["schemas"]["ErrorDetail"][];
         };
         /**
          * FastlyConfig
@@ -1483,23 +2076,58 @@ export interface components {
          * InstallationStatus
          * @description Whether the Docverse GitHub App is installed on a repository.
          *
-         *     Derived per response from the project's GitHub binding. Today only
-         *     ``not_installed`` and ``installed`` are ever returned;
-         *     ``suspended`` and ``needs_permissions`` are reserved enum values
-         *     for a later slice (projects currently have no suspended state — the
-         *     suspend/unsuspend webhooks only touch dashboard-template bindings).
+         *     Derived per response from the project's GitHub binding.
+         *
+         *     - ``not_installed`` — the App is not installed on the repository (or
+         *       its installation has not yet been resolved).
+         *     - ``installed`` — the App is installed on the repository.
+         *     - ``suspended`` — reserved; not returned today (projects currently
+         *       have no suspended state — the suspend/unsuspend webhooks only
+         *       touch dashboard-template bindings).
+         *     - ``needs_permissions`` — reserved; not returned today.
          * @enum {string}
          */
         InstallationStatus: "not_installed" | "installed" | "suspended" | "needs_permissions";
         /**
          * JobKind
          * @description Kind of background job.
+         *
+         *     - ``build_processing`` — unpack an uploaded build tarball, inventory
+         *       its objects, and evaluate edition tracking.
+         *     - ``edition_update`` — move an edition's build pointer.
+         *     - ``publish_edition`` — publish an edition's current build to the
+         *       CDN / object store serving path.
+         *     - ``dashboard_build`` — regenerate one project's dashboard from
+         *       database state.
+         *     - ``dashboard_sync`` — re-fetch a dashboard template from its bound
+         *       GitHub repository.
+         *     - ``lifecycle_eval`` — evaluate an organization's lifecycle rules
+         *       and soft-delete matching editions and builds.
+         *     - ``git_ref_audit`` — audit tracked git refs against the source
+         *       repository (feeds the ``ref_deleted`` lifecycle rule).
+         *     - ``purgatory_cleanup`` — permanently delete soft-deleted builds
+         *       whose purgatory retention has elapsed.
+         *     - ``edition_reconcile`` — re-drive one organization's editions whose
+         *       recorded publish state has drifted from what is actually served.
+         *     - ``credential_reencrypt`` — re-encrypt stored credentials after a
+         *       key rotation.
+         *     - ``keeper_sync_run_discovery`` — fan out per-project sync jobs for
+         *       a keeper-sync run.
+         *     - ``keeper_sync_project`` — sync one LTD product into Docverse.
          * @enum {string}
          */
-        JobKind: "build_processing" | "edition_update" | "publish_edition" | "dashboard_build" | "dashboard_sync" | "lifecycle_eval" | "git_ref_audit" | "purgatory_cleanup" | "credential_reencrypt" | "keeper_sync_run_discovery" | "keeper_sync_project";
+        JobKind: "build_processing" | "edition_update" | "publish_edition" | "dashboard_build" | "dashboard_sync" | "lifecycle_eval" | "git_ref_audit" | "purgatory_cleanup" | "edition_reconcile" | "credential_reencrypt" | "keeper_sync_run_discovery" | "keeper_sync_project";
         /**
          * JobStatus
          * @description Status of a queue job.
+         *
+         *     - ``queued`` — the job is enqueued and waiting for a worker.
+         *     - ``in_progress`` — a worker is executing the job.
+         *     - ``completed`` — the job finished successfully.
+         *     - ``completed_with_errors`` — the job finished, but some of its
+         *       work failed; see the job's ``errors`` field.
+         *     - ``failed`` — the job failed; see the job's ``errors`` field.
+         *     - ``cancelled`` — the job was cancelled before completing.
          * @enum {string}
          */
         JobStatus: "queued" | "in_progress" | "completed" | "completed_with_errors" | "failed" | "cancelled";
@@ -1510,7 +2138,31 @@ export interface components {
          *     Stored as a JSONB blob on the ``organizations`` row and validated
          *     through this model on read and write. ``GET /orgs/{org}/keeper-sync``
          *     returns a default-disabled instance when no config has been
-         *     persisted; ``PUT`` replaces the stored config wholesale.
+         *     persisted; ``PUT`` replaces the stored config wholesale, and
+         *     ``PATCH`` merges a :class:`KeeperSyncConfigUpdate` over it.
+         *
+         *     Four fields compose into the **sync scope** — the set of LTD product
+         *     slugs this organization imports and keeps in step. A slug is
+         *     *included* when ``project_slugs`` is ``"*"``, when it is listed in
+         *     ``project_slugs``, or when it fully matches one of
+         *     ``project_slug_patterns``; it is *in scope* when it is included and
+         *     is neither listed in ``exclude_project_slugs`` nor fully matched by
+         *     one of ``exclude_project_slug_patterns``. Excludes always win. See
+         *     :meth:`resolve_scope` for the rule, and
+         *     ``POST /orgs/{org}/keeper-sync/scope-preview`` for a side-effect-free
+         *     resolution of a candidate scope against the live LTD listing.
+         *
+         *     This is a **read** model, so ``extra="ignore"``: it parses both the
+         *     stored JSONB blob and a server's response body, and either may carry
+         *     a field written by a newer server than the code reading it — a
+         *     rolled-back server loading a row a newer one wrote, or a published
+         *     client parsing a newer server's response. Discarding such a field
+         *     keeps the older reader working; rejecting it would fail validation
+         *     over a value that would be dropped anyway, *after* the write had
+         *     already landed. Request bodies are strict instead:
+         *     :class:`KeeperSyncConfigWrite` (``PUT``) and
+         *     :class:`KeeperSyncConfigUpdate` (``PATCH``) both ``forbid`` unknown
+         *     fields, so a misspelled field in a request is still a 422.
          */
         KeeperSyncConfig: {
             /**
@@ -1528,9 +2180,167 @@ export interface components {
             ltd_base_url: string;
             /**
              * Project Slugs
-             * @description LTD project slugs to sync, or ``"*"`` for every project visible on the LTD instance.
+             * @description LTD project slugs to sync, or ``"*"`` for every project visible on the LTD instance. Either way the exclude fields still apply: excludes always win, so ``"*"`` with ``exclude_project_slugs`` is how an organization syncs everything but a named few.
+             * @example [
+             *       "sqr-112",
+             *       "dmtn-001"
+             *     ]
              */
             project_slugs?: string[] | "*";
+            /**
+             * Project Slug Patterns
+             * @description Python regular expressions that *add* LTD project slugs to the sync scope, on top of ``project_slugs``. Matched with :func:`re.fullmatch` and case-sensitively, so ``sqr-1`` matches only ``sqr-1`` — not ``sqr-10`` or ``sqr-100``. At most 100 entries, each at most 256 characters.
+             * @example [
+             *       "sqr-\\d+",
+             *       "dmtn-\\d+"
+             *     ]
+             */
+            project_slug_patterns?: string[];
+            /**
+             * Exclude Project Slugs
+             * @description LTD project slugs removed from the sync scope. Excludes always win: a slug listed here is out of scope even when ``project_slugs`` is ``"*"`` or an include pattern matches it.
+             * @example [
+             *       "www"
+             *     ]
+             */
+            exclude_project_slugs?: string[];
+            /**
+             * Exclude Project Slug Patterns
+             * @description Python regular expressions that *remove* LTD project slugs from the sync scope. Matched with :func:`re.fullmatch` and case-sensitively. Excludes always win over both ``project_slugs`` and ``project_slug_patterns``. At most 100 entries, each at most 256 characters.
+             * @example [
+             *       "test-.*"
+             *     ]
+             */
+            exclude_project_slug_patterns?: string[];
+        };
+        /**
+         * KeeperSyncConfigUpdate
+         * @description Partial update for an organization's LTD Keeper sync configuration.
+         *
+         *     Request model for ``PATCH /orgs/{org}/keeper-sync``, applied with
+         *     JSON-Merge-Patch semantics: every field is optional, and only the fields
+         *     present in the request body are changed — omitted fields are left
+         *     untouched. ``project_slugs``, when provided, **replaces the stored array
+         *     wholesale** (there is no append semantics; send the full desired list, or
+         *     ``"*"`` for every project). ``extra="forbid"`` rejects unknown fields, and
+         *     ``model_dump(exclude_unset=True)`` is what distinguishes "omitted" from an
+         *     explicit value. Use ``PUT`` for a full replacement of the config.
+         *
+         *     An explicit JSON ``null`` for any field is rejected with a 422: these
+         *     config fields are non-nullable, so RFC 7386's null-as-remove semantics
+         *     have no meaning here. Omit a field to leave it unchanged.
+         */
+        KeeperSyncConfigUpdate: {
+            /**
+             * Enabled
+             * @description Whether LTD Keeper sync is enabled on the organization.
+             */
+            enabled?: boolean | null;
+            /**
+             * Ltd Base Url
+             * @description Base URL of the LTD Keeper API (v1 shape).
+             */
+            ltd_base_url?: string | null;
+            /**
+             * Project Slugs
+             * @description LTD project slugs to sync, or ``"*"`` for every project visible on the LTD instance; the exclude fields still apply either way. When provided, replaces the stored list wholesale (no append semantics).
+             * @example [
+             *       "sqr-112",
+             *       "dmtn-001"
+             *     ]
+             */
+            project_slugs?: string[] | "*" | null;
+            /**
+             * Project Slug Patterns
+             * @description Python regular expressions that *add* LTD project slugs to the sync scope. When provided, replaces the stored list wholesale (no append semantics). Validated exactly as on ``PUT``.
+             * @example [
+             *       "sqr-\\d+",
+             *       "dmtn-\\d+"
+             *     ]
+             */
+            project_slug_patterns?: string[] | null;
+            /**
+             * Exclude Project Slugs
+             * @description LTD project slugs removed from the sync scope. When provided, replaces the stored list wholesale (no append semantics).
+             * @example [
+             *       "www"
+             *     ]
+             */
+            exclude_project_slugs?: string[] | null;
+            /**
+             * Exclude Project Slug Patterns
+             * @description Python regular expressions that *remove* LTD project slugs from the sync scope. When provided, replaces the stored list wholesale (no append semantics). Validated exactly as on ``PUT``.
+             * @example [
+             *       "test-.*"
+             *     ]
+             */
+            exclude_project_slug_patterns?: string[] | null;
+        };
+        /**
+         * KeeperSyncConfigWrite
+         * @description Full replacement of an organization's LTD Keeper sync configuration.
+         *
+         *     Request model for ``PUT /orgs/{org}/keeper-sync``. It carries exactly
+         *     the fields of :class:`KeeperSyncConfig` — and validates them by the
+         *     same rules, since it inherits them — but restores ``extra="forbid"``,
+         *     which the read model gives up so an older reader can tolerate a field
+         *     a newer server wrote.
+         *
+         *     The split is what lets the two directions differ: an unknown key
+         *     arriving at a *reader* is a newer writer's field and is dropped,
+         *     while an unknown key in a *request body* is the caller's typo and is
+         *     rejected with a 422 rather than silently discarded. ``PATCH`` uses
+         *     :class:`KeeperSyncConfigUpdate`, which forbids unknown fields for the
+         *     same reason.
+         */
+        KeeperSyncConfigWrite: {
+            /**
+             * Enabled
+             * @description Whether LTD Keeper sync is enabled on the organization.
+             * @default false
+             */
+            enabled: boolean;
+            /**
+             * Ltd Base Url
+             * Format: uri
+             * @description Base URL of the LTD Keeper API (v1 shape).
+             * @default https://keeper.lsst.codes/
+             */
+            ltd_base_url: string;
+            /**
+             * Project Slugs
+             * @description LTD project slugs to sync, or ``"*"`` for every project visible on the LTD instance. Either way the exclude fields still apply: excludes always win, so ``"*"`` with ``exclude_project_slugs`` is how an organization syncs everything but a named few.
+             * @example [
+             *       "sqr-112",
+             *       "dmtn-001"
+             *     ]
+             */
+            project_slugs?: string[] | "*";
+            /**
+             * Project Slug Patterns
+             * @description Python regular expressions that *add* LTD project slugs to the sync scope, on top of ``project_slugs``. Matched with :func:`re.fullmatch` and case-sensitively, so ``sqr-1`` matches only ``sqr-1`` — not ``sqr-10`` or ``sqr-100``. At most 100 entries, each at most 256 characters.
+             * @example [
+             *       "sqr-\\d+",
+             *       "dmtn-\\d+"
+             *     ]
+             */
+            project_slug_patterns?: string[];
+            /**
+             * Exclude Project Slugs
+             * @description LTD project slugs removed from the sync scope. Excludes always win: a slug listed here is out of scope even when ``project_slugs`` is ``"*"`` or an include pattern matches it.
+             * @example [
+             *       "www"
+             *     ]
+             */
+            exclude_project_slugs?: string[];
+            /**
+             * Exclude Project Slug Patterns
+             * @description Python regular expressions that *remove* LTD project slugs from the sync scope. Matched with :func:`re.fullmatch` and case-sensitively. Excludes always win over both ``project_slugs`` and ``project_slug_patterns``. At most 100 entries, each at most 256 characters.
+             * @example [
+             *       "test-.*"
+             *     ]
+             */
+            exclude_project_slug_patterns?: string[];
         };
         /**
          * KeeperSyncEditionDiff
@@ -1556,6 +2366,49 @@ export interface components {
             missing_in_ltd?: string[];
         };
         /**
+         * KeeperSyncEditionStatus
+         * @description One Docverse-side edition with its keeper-sync attribution.
+         *
+         *     Reflects a left-join from the Docverse ``editions`` table to
+         *     ``keeper_sync_state``: every Docverse edition appears, but the LTD
+         *     columns (``ltd_id`` / ``ltd_slug`` / ``date_last_synced``) are
+         *     populated only when keeper-sync has imported the edition.
+         */
+        KeeperSyncEditionStatus: {
+            /**
+             * Edition Url
+             * Format: uri
+             * @description Canonical ``GET /orgs/{org}/projects/{project}/editions/{edition}`` URL for this edition.
+             * @example https://example.org/docverse/api/orgs/lsst/projects/pipelines/editions/v1
+             */
+            edition_url: string;
+            /**
+             * Slug
+             * @description Docverse edition slug.
+             * @example v1
+             */
+            slug: string;
+            /** @description Docverse edition kind (``main``, ``draft``, ...). */
+            kind: components["schemas"]["EditionKind"];
+            /**
+             * Ltd Id
+             * @description LTD edition id from the linked ``keeper_sync_state`` row, or ``null`` when no row links this edition. This is the numeric id from the legacy LTD Keeper API, not a Docverse identifier.
+             * @example 4289
+             */
+            ltd_id?: number | null;
+            /**
+             * Ltd Slug
+             * @description LTD edition slug from the linked state row, or ``null`` when no row links this edition.
+             * @example v1
+             */
+            ltd_slug?: string | null;
+            /**
+             * Date Last Synced
+             * @description Most recent successful sync timestamp for this edition, or ``null`` if not yet synced.
+             */
+            date_last_synced?: string | null;
+        };
+        /**
          * KeeperSyncProjectRefreshAccepted
          * @description ``POST /projects/{ltd_slug}/refresh`` response envelope.
          */
@@ -1563,12 +2416,14 @@ export interface components {
             /**
              * Job Id
              * @description Public Base32 identifier for the enqueued ``keeper_sync_project`` queue job.
+             * @example 1vg8-zbgy-3rhq-52
              */
             job_id: string;
             /**
              * Job Url
              * Format: uri
              * @description URL of the enqueued job resource.
+             * @example https://example.org/docverse/api/orgs/lsst/jobs/1vg8-zbgy-3rhq-52
              */
             job_url: string;
         };
@@ -1583,6 +2438,7 @@ export interface components {
             /**
              * Ltd Slug
              * @description LTD product slug for this project.
+             * @example pipelines
              */
             ltd_slug: string;
             /**
@@ -1612,36 +2468,50 @@ export interface components {
              * Self Url
              * Format: uri
              * @description Canonical ``GET /orgs/{org}/keeper-sync/projects/{ltd_slug}`` URL for this project's keeper-sync status. Lets clients paginating the org-wide project listing drill into a single project without constructing the URL by hand.
+             * @example https://example.org/docverse/api/orgs/lsst/keeper-sync/projects/pipelines
              */
             self_url: string;
             /**
              * Org Url
              * Format: uri
              * @description Canonical ``GET /orgs/{org}`` URL for the Docverse organization this report is scoped to.
+             * @example https://example.org/docverse/api/orgs/lsst
              */
             org_url: string;
             /**
              * Project Url
              * @description Canonical ``GET /orgs/{org}/projects/{project}`` URL for the Docverse project, or ``null`` when no Docverse project has been imported yet for this LTD slug.
+             * @example https://example.org/docverse/api/orgs/lsst/projects/pipelines
              */
             project_url?: string | null;
             /**
              * Sync Refresh Url
              * Format: uri
              * @description URL to ``POST`` for an immediate one-shot sync of this project (``post_org_keeper_sync_project_refresh``). Always present so operators can trigger a refresh from the status response without constructing the URL by hand.
+             * @example https://example.org/docverse/api/orgs/lsst/keeper-sync/projects/pipelines/refresh
              */
             sync_refresh_url: string;
             /**
              * Editions Sync Url
              * Format: uri
              * @description URL to ``GET`` for the paginated keeper-sync editions collection for this project (``get_org_keeper_sync_project_editions``). Always present so operators can scan the full edition list without constructing the URL by hand.
+             * @example https://example.org/docverse/api/orgs/lsst/keeper-sync/projects/pipelines/editions
              */
             editions_sync_url: string;
             /**
              * Ltd Slug
              * @description LTD product slug the report is scoped to.
+             * @example pipelines
              */
             ltd_slug: string;
+            /**
+             * In Scope
+             * @description Whether ``ltd_slug`` is currently inside the organization's keeper-sync scope. The org-wide listing (``GET /orgs/{org}/keeper-sync/projects``) is deliberately *not* scope-filtered — a project that falls out of scope keeps its state rows and keeps appearing there — so this flag is the only thing distinguishing a project that is still syncing from one that silently stopped. Filter the listing on it with ``?in_scope=false`` to find stale excludes. Always ``true`` on the per-project ``GET .../projects/{ltd_slug}``, which answers 404 for an out-of-scope slug rather than reporting one. Defaults to ``true`` so a response from a server predating the field still parses, with the meaning that listing always had.
+             * @default true
+             * @example true
+             * @example false
+             */
+            in_scope: boolean;
             /** @description Project-resource ``keeper_sync_state`` row, or ``null`` when no row exists yet (never-seen project). */
             project_state?: components["schemas"]["KeeperSyncProjectStateSummary"] | null;
             /**
@@ -1649,46 +2519,165 @@ export interface components {
              * @description One entry per tier-cron in fixed order: ``main``, ``discovery``, ``other``.
              */
             tier_status: components["schemas"]["KeeperSyncTierStatus"][];
+            /**
+             * In Push Window
+             * @description Whether a GitHub push holds the project on the tier crons' fast path: ``true`` while any of ``pushed_refs`` is ``in_window``, when every ``tier_status`` entry reads ``hot``. Always ``false`` while the push hot path is switched off. Defaults to ``false`` so a response from a server predating the field still parses.
+             * @default false
+             * @example false
+             * @example true
+             */
+            in_push_window: boolean;
+            /**
+             * Pushed Refs
+             * @description The refs GitHub pushes have stamped on the project's keeper-sync state row, newest push first. A ref leaves the list once ``tier_main`` enqueues the project's sync for it, or prunes it after its window. Empty for a project no push has stamped, and for one with no state row.
+             */
+            pushed_refs?: components["schemas"]["KeeperSyncPushedRef"][];
             /** @description Embedded summary of the project's ``__main`` edition (``kind=main``), left-joined with its keeper-sync state row. ``null`` when no Docverse project exists yet for this LTD slug, or when the project has not yet been auto-created with a ``__main`` edition. The full edition list is paginated via ``editions_sync_url``. */
-            main_edition?: components["schemas"]["docverse__client__models__keeper_sync__KeeperSyncEditionStatus"] | null;
+            main_edition?: components["schemas"]["KeeperSyncEditionStatus"] | null;
             /** @description Live-LTD reconciliation diff. Present only when the request was made with ``?ltd=true``; otherwise omitted. */
             edition_diff?: components["schemas"]["KeeperSyncEditionDiff"] | null;
+        };
+        /**
+         * KeeperSyncPushedRef
+         * @description One ref a GitHub push stamped on a keeper-synced project.
+         *
+         *     A ``push`` to the project's repository stamps the pushed branch or
+         *     tag, with the time Docverse received it, on the project's
+         *     keeper-sync state row, and the tier crons poll the project on their
+         *     fast path until LTD has rebuilt the ref's edition or the push window
+         *     passes. Each stamp still on the row is reported here.
+         */
+        KeeperSyncPushedRef: {
+            /**
+             * Git Ref
+             * @description The pushed branch or tag, normalized: ``main`` or ``v1.2.0``, not ``refs/heads/main``.
+             * @example tickets/DM-56619
+             */
+            git_ref: string;
+            /**
+             * Date Pushed
+             * Format: date-time
+             * @description When Docverse received the ref's latest push. A repeated push to the same ref moves it forward, restarting the ref's window.
+             */
+            date_pushed: string;
+            /**
+             * In Window
+             * @description Whether the push is still inside the push window, so the tier crons poll the project on their fast path for it. ``false`` for a stamp whose window has passed but which ``tier_main`` has not pruned yet, and for every stamp while the push hot path is switched off.
+             * @example true
+             */
+            in_window: boolean;
         };
         /**
          * KeeperSyncResourceType
          * @description LTD resource types tracked by keeper-sync.
          *
-         *     Mirrors :class:`docverse.storage.keeper_sync.ResourceType` as a
-         *     public wire value so the admin tombstone API can filter requests
-         *     and shape responses without leaking the server-side enum's import
-         *     path. Builds are not tombstoned today, but the value is kept so
-         *     operator-facing filters do not silently reject a valid resource
-         *     type the schema otherwise carries.
+         *     - ``project`` — the tombstone vetoes re-import of the LTD product
+         *       entirely.
+         *     - ``edition`` — the tombstone vetoes one specific LTD edition.
+         *     - ``build`` — reserved; builds are not tombstoned today, but the
+         *       value is kept so operator-facing filters do not silently reject
+         *       a valid resource type the schema otherwise carries.
          * @enum {string}
          */
         KeeperSyncResourceType: "project" | "edition" | "build";
+        /**
+         * KeeperSyncRun
+         * @description Response model for a keeper sync run resource.
+         */
+        KeeperSyncRun: {
+            /**
+             * Self Url
+             * Format: uri
+             * @description URL to this run resource.
+             * @example https://example.org/docverse/api/orgs/lsst/keeper-sync/runs/1vg8-z8f9-18w0-84
+             */
+            self_url: string;
+            /**
+             * Jobs Url
+             * Format: uri
+             * @description URL to ``GET`` for the run's child queue-job listing (the org-scoped jobs collection filtered to this run, ``GET /orgs/{org}/jobs?run={id}``). Always present so clients can paginate the run's children without constructing the URL by hand.
+             * @example https://example.org/docverse/api/orgs/lsst/jobs?run=1vg8-z8f9-18w0-84
+             */
+            jobs_url: string;
+            /**
+             * Id
+             * @description Public Crockford Base32 identifier for the run.
+             * @example 1vg8-z8f9-18w0-84
+             */
+            id: string;
+            /** @description Kind of run. */
+            kind: components["schemas"]["KeeperSyncRunKind"];
+            /** @description Lifecycle status. */
+            status: components["schemas"]["KeeperSyncRunStatus"];
+            /**
+             * Pending Count
+             * @description Number of fanned-out child queue jobs still in a non-terminal state (queued or in_progress).
+             */
+            pending_count: number;
+            /**
+             * Succeeded Count
+             * @description Number of fanned-out child queue jobs that succeeded.
+             */
+            succeeded_count: number;
+            /**
+             * Failed Count
+             * @description Number of fanned-out child queue jobs that ended in a failure state (failed or cancelled).
+             */
+            failed_count: number;
+            /**
+             * Total Count
+             * @description Total number of fanned-out child queue jobs attributed to this run.
+             */
+            total_count: number;
+            /**
+             * Date Started
+             * Format: date-time
+             * @description Timestamp when the run row was created.
+             */
+            date_started: string;
+            /**
+             * Date Finished
+             * @description Timestamp when the run reached a terminal status.
+             */
+            date_finished?: string | null;
+            /**
+             * Date Last Activity
+             * @description Most-recent state-transition timestamp across the run's attributed child queue jobs. Operators can poll this to detect a stuck run without paginating its children. ``null`` while the run has no attributed queue jobs yet.
+             */
+            date_last_activity?: string | null;
+        };
         /**
          * KeeperSyncRunCreated
          * @description ``POST /runs`` response — new run plus discovery queue-job link.
          */
         KeeperSyncRunCreated: {
             /** @description The newly created run. */
-            run: components["schemas"]["docverse__client__models__keeper_sync__KeeperSyncRun"];
+            run: components["schemas"]["KeeperSyncRun"];
             /**
              * Job Id
              * @description Public Base32 identifier for the enqueued ``keeper_sync_run_discovery`` queue job.
+             * @example 1vg8-zbgy-3rhq-52
              */
             job_id: string;
             /**
              * Job Url
              * Format: uri
              * @description URL of the enqueued discovery job resource.
+             * @example https://example.org/docverse/api/orgs/lsst/jobs/1vg8-zbgy-3rhq-52
              */
             job_url: string;
         };
         /**
          * KeeperSyncRunKind
          * @description Kind of LTD Keeper sync run.
+         *
+         *     - ``backfill`` — full import of the configured LTD projects into
+         *       Docverse; the kind created by ``POST /orgs/{org}/keeper-sync/
+         *       runs`` today.
+         *     - ``resync`` — reserved for a re-import of already-synced projects;
+         *       not created today.
+         *     - ``reconcile`` — reserved for a diff-and-repair pass against LTD;
+         *       not created today.
          * @enum {string}
          */
         KeeperSyncRunKind: "backfill" | "resync" | "reconcile";
@@ -1696,13 +2685,175 @@ export interface components {
          * KeeperSyncRunStatus
          * @description Lifecycle status of a keeper sync run.
          *
-         *     ``pending`` — the discovery job has been enqueued but has not yet
-         *     fanned out any children. ``in_progress`` — discovery has enqueued
-         *     at least one child sync job. ``succeeded`` / ``partial_failure`` /
-         *     ``failed`` are terminal states.
+         *     - ``pending`` — the discovery job has been enqueued but has not yet
+         *       fanned out any children.
+         *     - ``in_progress`` — discovery has enqueued at least one child sync
+         *       job.
+         *     - ``succeeded`` — terminal; every child job succeeded.
+         *     - ``partial_failure`` — terminal; some child jobs failed.
+         *     - ``failed`` — terminal; the run failed outright (e.g. the
+         *       discovery job itself failed).
          * @enum {string}
          */
         KeeperSyncRunStatus: "pending" | "in_progress" | "succeeded" | "partial_failure" | "failed";
+        /**
+         * KeeperSyncScopePreview
+         * @description Side-effect-free resolution of a keeper-sync scope against LTD.
+         *
+         *     Response body of ``POST /orgs/{org}/keeper-sync/scope-preview``. The
+         *     endpoint merges an optional :class:`KeeperSyncConfigUpdate` over the
+         *     stored config exactly as ``PATCH`` would, resolves the result against
+         *     the *live* LTD product listing, and reports what that scope covers —
+         *     without persisting the candidate config or enqueueing any work.
+         *
+         *     Saving a wider scope is not inert: the tier crons act on the stored
+         *     config at their next tick. This report is how an operator checks a
+         *     candidate scope *before* saving it, which is what syncing lsst.io in
+         *     waves by document series needs.
+         *
+         *     ``in_scope_slugs`` is the scope as the *config* resolves it, so a
+         *     slug appears there even when a tombstone will make sync skip it;
+         *     ``tombstoned_slugs`` names that subset. The preview works whether or
+         *     not sync is ``enabled``.
+         * @example {
+         *       "in_scope_count": 3,
+         *       "in_scope_slugs": [
+         *         "sqr-060",
+         *         "sqr-112",
+         *         "dmtn-201"
+         *       ],
+         *       "ltd_count": 1640,
+         *       "new_slugs": [
+         *         "dmtn-201"
+         *       ],
+         *       "tombstoned_slugs": [
+         *         "sqr-060"
+         *       ],
+         *       "unmatched_exclude_project_slugs": [
+         *         "wwww"
+         *       ],
+         *       "unmatched_project_slugs": [
+         *         "sqr-9999"
+         *       ]
+         *     }
+         */
+        KeeperSyncScopePreview: {
+            /**
+             * Ltd Count
+             * @description Number of distinct product slugs the live LTD instance listed when the preview ran.
+             * @example 1640
+             */
+            ltd_count: number;
+            /**
+             * In Scope Count
+             * @description Size of ``in_scope_slugs``. This is how many child ``keeper_sync_project`` jobs a backfill launched with the same config would fan out — so the run's ``total_count`` is this plus one, the discovery job attributing itself to the run. Slugs skipped for a tombstone or for an already-running per-project job lower the child count further.
+             * @example 3
+             */
+            in_scope_count: number;
+            /**
+             * In Scope Slugs
+             * @description The resolved scope, in LTD listing order — the order in which a backfill would fan its children out. Includes slugs that a tombstone will make sync skip; see ``tombstoned_slugs``.
+             * @example [
+             *       "sqr-060",
+             *       "sqr-112",
+             *       "dmtn-201"
+             *     ]
+             */
+            in_scope_slugs?: string[];
+            /**
+             * New Slugs
+             * @description In-scope slugs with no keeper-sync state row on this organization yet — what the next backfill would import for the first time. In LTD listing order.
+             * @example [
+             *       "dmtn-201"
+             *     ]
+             */
+            new_slugs?: string[];
+            /**
+             * Tombstoned Slugs
+             * @description In-scope slugs that sync will skip because their project-resource state row is tombstoned. Clear the tombstone via ``DELETE /orgs/{org}/keeper-sync/tombstones/{tombstone}`` to bring one back. In LTD listing order.
+             * @example [
+             *       "sqr-060"
+             *     ]
+             */
+            tombstoned_slugs?: string[];
+            /**
+             * Unmatched Project Slugs
+             * @description Entries of ``project_slugs`` that the live LTD listing does not contain — the typo catcher for the include list. Such an entry admits nothing, so it is almost always a misspelling. ``project_slug_patterns`` is not checked here: a pattern matching nothing is a legitimate way to stage a future wave. Listed in config order and de-duplicated.
+             * @example [
+             *       "sqr-9999"
+             *     ]
+             */
+            unmatched_project_slugs?: string[];
+            /**
+             * Unmatched Exclude Project Slugs
+             * @description Entries of ``exclude_project_slugs`` that the live LTD listing does not contain. Reported separately from ``unmatched_project_slugs`` because it reads differently: such an entry removes nothing, so it is either a misspelling — dangerous, because the product it was meant to hold back syncs anyway — or a stale entry for a product since deleted from LTD, which is harmless and can be dropped from the config. ``exclude_project_slug_patterns`` is not checked here. Listed in config order and de-duplicated.
+             * @example [
+             *       "wwww"
+             *     ]
+             */
+            unmatched_exclude_project_slugs?: string[];
+        };
+        /**
+         * KeeperSyncScopePreviewRequest
+         * @description Candidate scope for ``POST /orgs/{org}/keeper-sync/scope-preview``.
+         *
+         *     Every field of :class:`KeeperSyncConfigUpdate`, validated by exactly
+         *     the same rules and merged over the stored config by exactly the same
+         *     merge — minus ``ltd_base_url``, which is rejected with a 422 naming
+         *     the field.
+         *
+         *     The preview resolves a *scope*, and the LTD instance a scope is
+         *     resolved against is not part of it. Honouring a candidate
+         *     ``ltd_base_url`` would have the server fetch an
+         *     operator-supplied URL from inside the cluster and echo the upstream
+         *     status and failure mode back in the 502 — an interactive status
+         *     oracle for internal hosts such as ``http://169.254.169.254/`` or a
+         *     bare in-cluster service name. So the preview always fetches from the
+         *     *stored* config's ``ltd_base_url`` (or the model default when no
+         *     config has been stored), and repointing the LTD instance stays what
+         *     it was: a ``PUT`` or ``PATCH`` the operator has to actually save.
+         */
+        KeeperSyncScopePreviewRequest: {
+            /**
+             * Enabled
+             * @description Whether LTD Keeper sync is enabled on the organization.
+             */
+            enabled?: boolean | null;
+            /**
+             * Project Slugs
+             * @description LTD project slugs to sync, or ``"*"`` for every project visible on the LTD instance; the exclude fields still apply either way. When provided, replaces the stored list wholesale (no append semantics).
+             * @example [
+             *       "sqr-112",
+             *       "dmtn-001"
+             *     ]
+             */
+            project_slugs?: string[] | "*" | null;
+            /**
+             * Project Slug Patterns
+             * @description Python regular expressions that *add* LTD project slugs to the sync scope. When provided, replaces the stored list wholesale (no append semantics). Validated exactly as on ``PUT``.
+             * @example [
+             *       "sqr-\\d+",
+             *       "dmtn-\\d+"
+             *     ]
+             */
+            project_slug_patterns?: string[] | null;
+            /**
+             * Exclude Project Slugs
+             * @description LTD project slugs removed from the sync scope. When provided, replaces the stored list wholesale (no append semantics).
+             * @example [
+             *       "www"
+             *     ]
+             */
+            exclude_project_slugs?: string[] | null;
+            /**
+             * Exclude Project Slug Patterns
+             * @description Python regular expressions that *remove* LTD project slugs from the sync scope. When provided, replaces the stored list wholesale (no append semantics). Validated exactly as on ``PUT``.
+             * @example [
+             *       "test-.*"
+             *     ]
+             */
+            exclude_project_slug_patterns?: string[] | null;
+        };
         /**
          * KeeperSyncTierStatus
          * @description Per-tier cohort + jitter-aware schedule for a project.
@@ -1745,11 +2896,13 @@ export interface components {
              * Self Url
              * Format: uri
              * @description Canonical URL of the DELETE endpoint that would clear this tombstone (``delete_org_keeper_sync_tombstone``). The endpoint accepts only ``DELETE``; GET-on-self is not modelled because the list response already carries every field a single-tombstone fetch would return.
+             * @example https://example.org/docverse/api/orgs/lsst/keeper-sync/tombstones/1v3e-2qhh-39ej-55
              */
             self_url: string;
             /**
              * Id
              * @description Public Crockford Base32 identifier for the tombstoned ``keeper_sync_state`` row. Use this id with the DELETE endpoint to clear the tombstone.
+             * @example 1v3e-2qhh-39ej-55
              */
             id: string;
             /** @description LTD resource type the tombstone applies to. ``project`` vetoes re-import of the LTD product entirely; ``edition`` vetoes one specific LTD edition; ``build`` is reserved (no caller writes build-level tombstones today). */
@@ -1757,18 +2910,15 @@ export interface components {
             /**
              * Ltd Slug
              * @description LTD-side slug for the tombstoned resource. For ``project`` rows this is the LTD product slug; for ``edition`` rows it is the LTD edition slug (e.g. ``main`` or ``v1.0``).
+             * @example v1
              */
             ltd_slug: string;
             /**
              * Ltd Id
-             * @description LTD-side numeric id for the tombstoned resource. Populated for ``edition`` and ``build`` rows; ``null`` for ``project`` rows (LTD products are slug-only).
+             * @description LTD-side numeric id for the tombstoned resource, from the legacy LTD Keeper API. Populated for ``edition`` and ``build`` rows; ``null`` for ``project`` rows (LTD products are slug-only).
+             * @example 4289
              */
             ltd_id?: number | null;
-            /**
-             * Docverse Id
-             * @description Docverse-side row id the tombstone is paired to. ``null`` for ``lifecycle_preemptive`` rows that veto an LTD edition that was never imported (so no Docverse row exists).
-             */
-            docverse_id?: number | null;
             /**
              * Date Tombstoned
              * Format: date-time
@@ -1785,6 +2935,7 @@ export interface components {
             /**
              * Display Path
              * @description Docverse-side display path for the tombstoned resource. For ``project`` rows: the Docverse project slug. For ``edition`` rows: ``<project_slug>/<edition_slug>``. Falls back to the LTD slug when no Docverse row is linked (``lifecycle_preemptive`` rows) or the linked row has been hard-deleted out from under the tombstone.
+             * @example pipelines/v1
              */
             display_path: string;
         };
@@ -1792,8 +2943,15 @@ export interface components {
          * KeeperSyncTombstoneReason
          * @description Why a ``keeper_sync_state`` row was tombstoned.
          *
-         *     Wire-stable enum surfaced by the admin tombstone API. Mirrors
-         *     :class:`docverse.storage.keeper_sync.TombstoneReason`.
+         *     - ``manual_delete`` — an operator soft-deleted the Docverse-side
+         *       resource; the tombstone stops sync from re-importing it.
+         *     - ``lifecycle_delete`` — an automated process (``lifecycle_eval``,
+         *       ``git_ref_audit``, or the ``ref_deleted`` webhook) soft-deleted
+         *       the Docverse-side resource.
+         *     - ``lifecycle_preemptive`` — sync itself short-circuited an LTD
+         *       edition that the lifecycle rules would immediately delete,
+         *       before the build content was copied. No matching Docverse row
+         *       exists in this case.
          * @enum {string}
          */
         KeeperSyncTombstoneReason: "manual_delete" | "lifecycle_delete" | "lifecycle_preemptive";
@@ -1829,24 +2987,42 @@ export interface components {
         };
         /**
          * OrgDashboardRebuildEntry
-         * @description Org-wide dashboard rebuild entry with HATEOAS URL.
+         * @description One enqueued ``dashboard_build`` in the org-wide rebuild response.
          */
         OrgDashboardRebuildEntry: {
             /**
              * Project Slug
              * @description Slug of the project the job will rebuild.
+             * @example pipelines
              */
             project_slug: string;
             /**
              * Job Id
              * @description Public Base32 identifier for the enqueued job.
+             * @example 1vg8-zbgy-3rhq-52
              */
             job_id: string;
             /**
              * Job Url
              * @description URL to the enqueued job resource.
+             * @example https://example.org/docverse/api/orgs/lsst/jobs/1vg8-zbgy-3rhq-52
              */
             job_url: string;
+        };
+        /**
+         * OrgDashboardRebuildResponse
+         * @description Response body for the org-wide dashboard rebuild endpoint.
+         *
+         *     The enqueued jobs are wrapped in an object envelope (rather than a
+         *     bare JSON array) so the response can grow additional fields without a
+         *     breaking change.
+         */
+        OrgDashboardRebuildResponse: {
+            /**
+             * Entries
+             * @description One entry per project for which a ``dashboard_build`` job was enqueued.
+             */
+            entries?: components["schemas"]["OrgDashboardRebuildEntry"][];
         };
         /**
          * OrgMembership
@@ -1856,11 +3032,13 @@ export interface components {
             /**
              * Self Url
              * @description URL to this membership resource.
+             * @example https://example.org/docverse/api/orgs/lsst/members/user:jdoe
              */
             self_url: string;
             /**
              * Org Url
              * @description URL to the parent organization.
+             * @example https://example.org/docverse/api/orgs/lsst
              */
             org_url: string;
             /**
@@ -1873,6 +3051,7 @@ export interface components {
             /**
              * Principal
              * @description Username or group name.
+             * @example jdoe
              */
             principal: string;
             /** @description Whether the principal is a user or group. */
@@ -1898,11 +3077,184 @@ export interface components {
             role: components["schemas"]["OrgRole"];
         };
         /**
+         * OrgMembershipUpdate
+         * @description Request model for updating an organization membership (PATCH).
+         *
+         *     Only ``role`` is mutable. ``principal`` and ``principal_type`` identify
+         *     the membership and are immutable — changing identity is a delete plus a
+         *     re-add. ``extra="forbid"`` rejects attempts to patch those or any other
+         *     field. Applied with JSON-Merge-Patch semantics: omitted fields are left
+         *     untouched.
+         */
+        OrgMembershipUpdate: {
+            /** @description New role to assign to the member. */
+            role?: components["schemas"]["OrgRole"] | null;
+        };
+        /**
          * OrgRole
          * @description Role within an organization.
+         *
+         *     Roles are ordered: each level includes the permissions of the
+         *     levels below it.
+         *
+         *     - ``reader`` — read access to the organization's resources.
+         *     - ``uploader`` — reader plus creating builds and uploading build
+         *       content.
+         *     - ``admin`` — full control of the organization, including
+         *       projects, editions, membership, services, credentials, and
+         *       configuration.
          * @enum {string}
          */
         OrgRole: "reader" | "uploader" | "admin";
+        /**
+         * Organization
+         * @description Organization response model with HATEOAS URLs.
+         */
+        Organization: {
+            /**
+             * Self Url
+             * @description URL to this organization resource.
+             * @example https://example.org/docverse/api/orgs/lsst
+             */
+            self_url: string;
+            /**
+             * Dashboard Template Url
+             * @description URL to the organization's default dashboard-template binding.
+             * @example https://example.org/docverse/api/orgs/lsst/dashboard-template
+             */
+            dashboard_template_url: string;
+            /**
+             * Keeper Sync Url
+             * @description URL to the organization's LTD Keeper sync configuration.
+             * @example https://example.org/docverse/api/orgs/lsst/keeper-sync
+             */
+            keeper_sync_url: string;
+            /**
+             * Id
+             * @description Public Crockford Base32 identifier for the organization. Stable for the life of the organization, so it still identifies this resource if the slug is ever renamed. Path parameters use the slug, not this id.
+             * @example 1vzr-eky0-0vvf-43
+             */
+            id: string;
+            /**
+             * Slug
+             * @description URL-safe identifier for the organization.
+             * @example lsst
+             */
+            slug: string;
+            /**
+             * Title
+             * @description Display title for the organization.
+             * @example Rubin Observatory
+             */
+            title: string;
+            /**
+             * Base Domain
+             * @description Base domain for documentation sites.
+             * @example lsst.io
+             */
+            base_domain: string;
+            /** @description URL scheme for project documentation. */
+            url_scheme: components["schemas"]["UrlScheme"];
+            /**
+             * Root Path Prefix
+             * @description Root path prefix when using path_prefix URL scheme.
+             */
+            root_path_prefix: string;
+            /**
+             * Slug Rewrite Rules
+             * @description Rules for rewriting project slugs in URLs.
+             */
+            slug_rewrite_rules: {
+                [key: string]: unknown;
+            }[] | null;
+            /** @description Rules governing build lifecycle. */
+            lifecycle_rules: components["schemas"]["LifecycleRuleSet"] | null;
+            /** @description Default configuration for the __main edition on new projects. */
+            default_edition_config?: components["schemas"]["DefaultEditionConfig"] | null;
+            /** @description Org-level defaults for which editions Docverse auto-creates when a build lands. ``null`` means the built-in defaults apply. A project's own value overrides this whole-object. */
+            edition_autocreation?: components["schemas"]["EditionAutocreationConfig"] | null;
+            /**
+             * Purgatory Retention
+             * @description Duration in seconds to retain inactive builds in purgatory before deletion.
+             */
+            purgatory_retention: number;
+            /**
+             * @description Object storage service used for publishing.
+             * @example {
+             *       "category": "object_storage",
+             *       "label": "docs-bucket",
+             *       "provider": "aws_s3",
+             *       "self_url": "https://example.org/docverse/api/orgs/lsst/services/docs-bucket"
+             *     }
+             */
+            publishing_store?: components["schemas"]["OrganizationServiceSummary"] | null;
+            /**
+             * @description Object storage service used for staging uploads.
+             * @example {
+             *       "category": "object_storage",
+             *       "label": "staging-bucket",
+             *       "provider": "aws_s3",
+             *       "self_url": "https://example.org/docverse/api/orgs/lsst/services/staging-bucket"
+             *     }
+             */
+            staging_store?: components["schemas"]["OrganizationServiceSummary"] | null;
+            /**
+             * @description CDN service for cache purging and edge data.
+             * @example {
+             *       "category": "cdn",
+             *       "label": "cdn",
+             *       "provider": "fastly",
+             *       "self_url": "https://example.org/docverse/api/orgs/lsst/services/cdn"
+             *     }
+             */
+            cdn_service?: components["schemas"]["OrganizationServiceSummary"] | null;
+            /**
+             * @description DNS service for subdomain registration.
+             * @example {
+             *       "category": "dns",
+             *       "label": "dns",
+             *       "provider": "route53",
+             *       "self_url": "https://example.org/docverse/api/orgs/lsst/services/dns"
+             *     }
+             */
+            dns_service?: components["schemas"]["OrganizationServiceSummary"] | null;
+            /**
+             * Date Created
+             * Format: date-time
+             * @description Timestamp when the organization was created.
+             */
+            date_created: string;
+            /**
+             * Date Updated
+             * Format: date-time
+             * @description Timestamp of the most recent update.
+             */
+            date_updated: string;
+            /**
+             * Services Url
+             * @description URL to list services for this organization.
+             * @example https://example.org/docverse/api/orgs/lsst/services
+             */
+            services_url: string;
+            /**
+             * Credentials Url
+             * @description URL to list credentials for this organization.
+             * @example https://example.org/docverse/api/orgs/lsst/credentials
+             */
+            credentials_url: string;
+            /**
+             * Projects Url
+             * @description URL to list projects for this organization.
+             * @example https://example.org/docverse/api/orgs/lsst/projects
+             */
+            projects_url: string;
+            /**
+             * Members Url
+             * @description URL to list members of this organization.
+             * @example https://example.org/docverse/api/orgs/lsst/members
+             */
+            members_url: string;
+        };
         /**
          * OrganizationCreate
          * @description Request model for creating an organization.
@@ -1955,21 +3307,25 @@ export interface components {
             /**
              * Publishing Store Label
              * @description Label of the object_storage service for publishing.
+             * @example docs-bucket
              */
             publishing_store_label?: string | null;
             /**
              * Staging Store Label
              * @description Label of the object_storage service for staging.
+             * @example staging-bucket
              */
             staging_store_label?: string | null;
             /**
              * Cdn Service Label
              * @description Label of the cdn service.
+             * @example cdn
              */
             cdn_service_label?: string | null;
             /**
              * Dns Service Label
              * @description Label of the dns service.
+             * @example dns
              */
             dns_service_label?: string | null;
             /** @description Default configuration for the __main edition on new projects. Used when a project creation request omits its own config. */
@@ -2007,16 +3363,19 @@ export interface components {
             /**
              * Self Url
              * @description URL to this credential resource.
+             * @example https://example.org/docverse/api/orgs/lsst/credentials/aws
              */
             self_url: string;
             /**
              * Org Url
              * @description URL to the parent organization.
+             * @example https://example.org/docverse/api/orgs/lsst
              */
             org_url: string;
             /**
              * Label
              * @description Human-readable label for the credential, unique per organization.
+             * @example aws
              */
             label: string;
             /** @description Cloud provider for this credential. */
@@ -2043,6 +3402,7 @@ export interface components {
              * Label
              * @description Human-readable label for the service, unique per organization.
              * @example docs-bucket
+             * @example staging-bucket
              * @example cdn
              * @example dns
              */
@@ -2066,21 +3426,28 @@ export interface components {
             /**
              * Self Url
              * @description URL to this service resource.
+             * @example https://example.org/docverse/api/orgs/lsst/services/docs-bucket
              */
             self_url: string;
             /**
              * Org Url
              * @description URL to the parent organization.
+             * @example https://example.org/docverse/api/orgs/lsst
              */
             org_url: string;
             /**
              * Credential Url
              * @description URL to the credential this service uses.
+             * @example https://example.org/docverse/api/orgs/lsst/credentials/aws
              */
             credential_url: string;
             /**
              * Label
              * @description Human-readable label for the service, unique per organization.
+             * @example docs-bucket
+             * @example staging-bucket
+             * @example cdn
+             * @example dns
              */
             label: string;
             /** @description Service category. */
@@ -2090,6 +3457,11 @@ export interface components {
             /**
              * Config
              * @description Provider-specific non-secret configuration.
+             * @example {
+             *       "bucket": "lsst-the-docs",
+             *       "provider": "aws_s3",
+             *       "region": "us-east-1"
+             *     }
              */
             config: {
                 [key: string]: unknown;
@@ -2097,6 +3469,7 @@ export interface components {
             /**
              * Credential Label
              * @description Label of the credential used for authentication.
+             * @example aws
              */
             credential_label: string;
             /**
@@ -2120,11 +3493,16 @@ export interface components {
             /**
              * Self Url
              * @description URL to the full service resource.
+             * @example https://example.org/docverse/api/orgs/lsst/services/docs-bucket
              */
             self_url: string;
             /**
              * Label
              * @description Service label.
+             * @example docs-bucket
+             * @example staging-bucket
+             * @example cdn
+             * @example dns
              */
             label: string;
             /** @description Service category. */
@@ -2142,6 +3520,44 @@ export interface components {
              * @description Label of the credential to use for authentication. Must reference an existing credential with a compatible provider.
              */
             credential_label?: string | null;
+        };
+        /**
+         * OrganizationSummary
+         * @description Summary of an organization the caller can access.
+         *
+         *     Returned by the non-admin ``GET /orgs`` listing, one entry per
+         *     organization in which the caller holds an effective role (via direct
+         *     membership or a group). It carries only the identifying fields plus
+         *     the caller's effective ``role`` — the full organization resource is
+         *     available at ``self_url``.
+         */
+        OrganizationSummary: {
+            /**
+             * Self Url
+             * @description URL to this organization resource.
+             * @example https://example.org/docverse/api/orgs/lsst
+             */
+            self_url: string;
+            /**
+             * Id
+             * @description Public Crockford Base32 identifier for the organization — the same value the full organization resource carries.
+             * @example 1vzr-eky0-0vvf-43
+             */
+            id: string;
+            /**
+             * Slug
+             * @description URL-safe identifier for the organization.
+             * @example lsst
+             */
+            slug: string;
+            /**
+             * Title
+             * @description Display title for the organization.
+             * @example Rubin Observatory
+             */
+            title: string;
+            /** @description The caller's effective role in the organization. */
+            role: components["schemas"]["OrgRole"];
         };
         /**
          * OrganizationUpdate
@@ -2182,29 +3598,39 @@ export interface components {
             /**
              * Publishing Store Label
              * @description Label of the object_storage service for publishing.
+             * @example docs-bucket
              */
             publishing_store_label?: string | null;
             /**
              * Staging Store Label
              * @description Label of the object_storage service for staging.
+             * @example staging-bucket
              */
             staging_store_label?: string | null;
             /**
              * Cdn Service Label
              * @description Label of the cdn service.
+             * @example cdn
              */
             cdn_service_label?: string | null;
             /**
              * Dns Service Label
              * @description Label of the dns service.
+             * @example dns
              */
             dns_service_label?: string | null;
             /** @description Default configuration for the __main edition on new projects. */
             default_edition_config?: components["schemas"]["DefaultEditionConfig"] | null;
+            /** @description Org-level defaults for which editions Docverse auto-creates when a build lands. Pass ``null`` to clear the config and fall back to the built-in defaults. */
+            edition_autocreation?: components["schemas"]["EditionAutocreationConfig"] | null;
         };
         /**
          * PrincipalType
          * @description Type of principal in an organization membership.
+         *
+         *     - ``user`` — the principal is an individual username.
+         *     - ``group`` — the principal is a group name; every member of the
+         *       group holds the membership's role.
          * @enum {string}
          */
         PrincipalType: "user" | "group";
@@ -2216,41 +3642,55 @@ export interface components {
             /**
              * Self Url
              * @description URL to this project resource.
+             * @example https://example.org/docverse/api/orgs/lsst/projects/pipelines
              */
             self_url: string;
             /**
              * Org Url
              * @description URL to the parent organization.
+             * @example https://example.org/docverse/api/orgs/lsst
              */
             org_url: string;
             /**
              * Editions Url
              * @description URL to list editions for this project.
+             * @example https://example.org/docverse/api/orgs/lsst/projects/pipelines/editions
              */
             editions_url: string;
             /**
              * Builds Url
              * @description URL to list builds for this project.
+             * @example https://example.org/docverse/api/orgs/lsst/projects/pipelines/builds
              */
             builds_url: string;
             /**
              * Dashboard Template Url
              * @description URL to the project's dashboard-template binding override.
+             * @example https://example.org/docverse/api/orgs/lsst/projects/pipelines/dashboard-template
              */
             dashboard_template_url: string;
             /**
+             * Id
+             * @description Public Crockford Base32 identifier for the project. Stable for the life of the project, so it still identifies this resource if the slug is ever renamed. Path parameters use the slug, not this id.
+             * @example 1w01-nw5r-173e-35
+             */
+            id: string;
+            /**
              * Slug
              * @description URL-safe identifier for the project.
+             * @example pipelines
              */
             slug: string;
             /**
              * Title
              * @description Display title for the project.
+             * @example LSST Science Pipelines
              */
             title: string;
             /**
              * Source Url
              * @description Effective URL of the documentation source repository. Derived from the ``github`` binding when present (``https://github.com/{owner}/{repo}``); otherwise the stored non-GitHub URL. ``None`` when neither is set.
+             * @example https://github.com/lsst/pipelines_lsst_io
              */
             source_url?: string | null;
             /** @description Structured GitHub coordinates for the project. ``None`` for projects whose source repository is not on GitHub. */
@@ -2264,8 +3704,10 @@ export interface components {
             }[] | null;
             /** @description Rules governing build lifecycle. */
             lifecycle_rules?: components["schemas"]["LifecycleRuleSet"] | null;
-            /** @description The default (__main) edition for this project. Populated on single-project responses (GET, POST, PATCH) but omitted from list responses. */
-            default_edition?: components["schemas"]["docverse__client__models__editions__Edition"] | null;
+            /** @description Which editions Docverse auto-creates for this project when a build lands. ``null`` defers to the organization's config, then to the built-in defaults. */
+            edition_autocreation?: components["schemas"]["EditionAutocreationConfig"] | null;
+            /** @description The default (__main) edition for this project, embedded on every project response including each row of the project listing, so a poller reads the current build and published URL without a second request per project. ``null`` only for a soft-deleted project, whose editions were deleted with it. */
+            default_edition?: components["schemas"]["Edition"] | null;
             /**
              * Date Created
              * Format: date-time
@@ -2278,6 +3720,11 @@ export interface components {
              * @description Timestamp of the most recent update.
              */
             date_updated: string;
+            /**
+             * Date Deleted
+             * @description Timestamp when the project was soft-deleted, or ``null`` for a live project. A deleted project is only ever returned when the request asked for it with ``include_deleted=true``; the field is present either way so a consumer mirroring the listing can tell a deletion from a project that simply stopped appearing.
+             */
+            date_deleted?: string | null;
         };
         /**
          * ProjectCreate
@@ -2317,16 +3764,19 @@ export interface components {
             /**
              * Owner
              * @description GitHub owner (user or organization login).
+             * @example lsst
              */
             owner: string;
             /**
              * Repo
              * @description GitHub repository name.
+             * @example pipelines_lsst_io
              */
             repo: string;
             /**
              * Installation Id
              * @description GitHub App installation id for the repository. ``None`` when the App is not installed or has not yet been resolved.
+             * @example 42150081
              */
             installation_id?: number | null;
             /** @description Whether the Docverse GitHub App is installed on this repo. Today only ``not_installed``/``installed`` are returned; ``suspended`` and ``needs_permissions`` are reserved. */
@@ -2334,8 +3784,15 @@ export interface components {
             /**
              * App Url
              * @description Public URL of the Docverse GitHub App's install page (e.g. ``https://github.com/apps/{slug}``), so an operator can install the App on the repository. ``None`` when the GitHub App feature is unconfigured or its credentials failed startup validation.
+             * @example https://github.com/apps/docverse
              */
             app_url?: string | null;
+            /**
+             * Default Branch
+             * @description The repository's default branch as GitHub last reported it. Read-only: GitHub is the source of truth, so it cannot be set through the API. ``None`` until Docverse has learned it (after the project is bound, or for a project that predates the field); Docverse treats that as ``main``.
+             * @example main
+             */
+            default_branch?: string | null;
         };
         /**
          * ProjectGitHubBindingCreate
@@ -2345,11 +3802,13 @@ export interface components {
             /**
              * Owner
              * @description GitHub owner (user or organization login).
+             * @example lsst
              */
             owner: string;
             /**
              * Repo
              * @description GitHub repository name.
+             * @example pipelines_lsst_io
              */
             repo: string;
         };
@@ -2358,7 +3817,7 @@ export interface components {
          * @description Sort orders for project listings.
          * @enum {string}
          */
-        ProjectSortOrder: "slug" | "date_created";
+        ProjectSortOrder: "slug" | "date_created" | "date_updated";
         /**
          * ProjectUpdate
          * @description Request model for updating a project (PATCH).
@@ -2385,6 +3844,8 @@ export interface components {
             }[] | null;
             /** @description Rules governing build lifecycle. */
             lifecycle_rules?: components["schemas"]["LifecycleRuleSet"] | null;
+            /** @description Which editions Docverse auto-creates for this project when a build lands. Pass ``null`` to clear the override and defer to the organization's config. */
+            edition_autocreation?: components["schemas"]["EditionAutocreationConfig"] | null;
         };
         /**
          * PublishJobRef
@@ -2403,11 +3864,13 @@ export interface components {
             /**
              * Publish Queue Job Public Id
              * @description Public Crockford Base32 identifier of the publish_edition job.
+             * @example 1vp1-yvk8-39he-47
              */
             publish_queue_job_public_id?: string | null;
             /**
              * Job Url
              * @description Absolute URL of the publish_edition job resource (a HATEOAS link clients follow instead of reconstructing the path). Omitted when the Docverse API base URL could not be resolved.
+             * @example https://example.org/docverse/api/orgs/lsst/jobs/1vp1-yvk8-39he-47
              */
             job_url?: string | null;
         } & {
@@ -2416,6 +3879,13 @@ export interface components {
         /**
          * PublishStatus
          * @description CDN publish state for an edition or edition build history entry.
+         *
+         *     - ``pending`` — the edition points at a build that has not been
+         *       published yet.
+         *     - ``publishing`` — a ``publish_edition`` job is copying the build
+         *       to the serving path.
+         *     - ``published`` — the build is live at the edition's published URL.
+         *     - ``failed`` — the most recent publish attempt failed.
          * @enum {string}
          */
         PublishStatus: "pending" | "publishing" | "published" | "failed";
@@ -2427,44 +3897,53 @@ export interface components {
             /**
              * Self Url
              * @description URL to this queue job resource.
+             * @example https://example.org/docverse/api/orgs/lsst/jobs/1vg8-zbgy-3rhq-52
              */
             self_url: string;
             /**
              * Id
              * @description Public Crockford Base32 identifier for the job.
+             * @example 1vg8-zbgy-3rhq-52
              */
             id: string;
+            /** @description Kind of background job. */
             kind: components["schemas"]["JobKind"];
             /** @description Current status of the job. */
             status: components["schemas"]["JobStatus"];
             /**
              * Keeper Sync Run Id
              * @description Public Crockford Base32 identifier of the keeper-sync run this job is attributed to, or ``null`` for jobs not part of a run.
+             * @example 1vg8-z8f9-18w0-84
              */
             keeper_sync_run_id?: string | null;
             /**
              * Subject Label
              * @description Human-readable identifier for the resource this job targets (e.g. an LTD slug for keeper-sync project jobs).
+             * @example pipelines
              */
             subject_label?: string | null;
             /**
              * Subject Url
              * @description Absolute URL of the primary API resource this job processes (a HATEOAS link clients follow instead of reconstructing the path): the build for build_processing jobs, the edition for publish jobs. ``null`` when no API resource exists or it could not be resolved.
+             * @example https://example.org/docverse/api/orgs/lsst/projects/pipelines/builds/1txq-55pj-1x5m-16
              */
             subject_url?: string | null;
             /**
              * Build Url
              * @description Absolute URL of the build this job processes, or ``null`` when the job targets no build or it could not be resolved.
+             * @example https://example.org/docverse/api/orgs/lsst/projects/pipelines/builds/1txq-55pj-1x5m-16
              */
             build_url?: string | null;
             /**
              * Edition Url
              * @description Absolute URL of the edition this job targets, or ``null`` when the job targets no edition or it could not be resolved.
+             * @example https://example.org/docverse/api/orgs/lsst/projects/pipelines/editions/v1
              */
             edition_url?: string | null;
             /**
              * Phase
              * @description Current processing phase (e.g., inventory, tracking, editions, dashboard).
+             * @example editions
              */
             phase?: string | null;
             /** @description Structured progress data. Typed for ``build_processing`` jobs; other kinds round-trip their fields via ``extra='allow'``. */
@@ -2510,6 +3989,44 @@ export interface components {
              */
             type: "ref_deleted";
         };
+        /**
+         * RetiredBuildStatus
+         * @description State a build was found in when its worker stood down.
+         *
+         *     Reported as ``BuildProcessingProgress.retired_status`` on a
+         *     ``build_processing`` job that completed without publishing anything
+         *     because somebody else retired the build underneath it — a delete, a
+         *     lifecycle reap, the stranded-build sweep, a supersession, or a purge
+         *     that removed the row outright. The value names *what the worker
+         *     found*, so an operator does not have to guess which of the several
+         *     possible retirements happened. The commonest are:
+         *
+         *     - ``cancelled`` — the build was deleted (or lifecycle-reaped) and
+         *       cancelled. Always accompanied by ``deleted_skipped``.
+         *     - ``failed`` — the stranded-build sweep or the silent-job reaper
+         *       failed it, usually because the upload ran past the reaper
+         *       threshold.
+         *     - ``superseded`` — a newer build for the same ``(project, git_ref)``
+         *       took over.
+         *     - ``missing`` — the row was gone by the time the worker looked.
+         *
+         *     This is :class:`~docverse.models.BuildStatus` plus ``missing``, and
+         *     the overlap is deliberate rather than duplication. Every
+         *     ``BuildStatus`` is a member because the worker reports whatever
+         *     status its re-read returned, and the re-read can return a *live*
+         *     status: ``BuildStore.soft_delete`` stamps ``date_deleted`` without
+         *     touching the status, so a deleted row can still read ``completed``
+         *     and is retired just as firmly. (A deleted row still ``processing``
+         *     is cancelled by the worker on its way out and reported as
+         *     ``cancelled``, unless something else retires it first.) A narrower enum
+         *     would reject a payload the worker really writes, turning a job
+         *     listing into a validation error. ``missing`` is the member with no
+         *     ``BuildStatus`` counterpart, and cannot become one: there is no row
+         *     to write it to, and ``BuildStatus`` is persisted behind the
+         *     ``builds_status_check`` constraint.
+         * @enum {string}
+         */
+        RetiredBuildStatus: "pending" | "uploaded" | "processing" | "completed" | "failed" | "superseded" | "cancelled" | "missing";
         /**
          * Route53Config
          * @description Configuration for AWS Route 53 DNS.
@@ -2565,24 +4082,57 @@ export interface components {
         /**
          * ServiceCategory
          * @description Category of infrastructure service.
+         *
+         *     - ``object_storage`` — object storage for documentation content.
+         *     - ``cdn`` — content delivery network for cache purging and edge
+         *       data.
+         *     - ``dns`` — DNS management for subdomain registration.
          * @enum {string}
          */
         ServiceCategory: "object_storage" | "cdn" | "dns";
         /**
          * ServiceProvider
          * @description Specific infrastructure service provider.
+         *
+         *     Object storage: ``aws_s3``, ``cloudflare_r2``, ``minio``, ``gcs``.
+         *     CDN: ``fastly``, ``cloudflare_workers``, ``cloudfront``,
+         *     ``google_cloud_cdn``. DNS: ``route53``, ``cloudflare_dns``.
          * @enum {string}
          */
         ServiceProvider: "aws_s3" | "cloudflare_r2" | "minio" | "gcs" | "fastly" | "cloudflare_workers" | "cloudfront" | "google_cloud_cdn" | "route53" | "cloudflare_dns";
         /**
          * TrackingMode
          * @description How an edition tracks builds for automatic updates.
+         *
+         *     - ``git_ref`` — follow builds from one git ref, named in
+         *       ``tracking_params`` (e.g. ``{"git_ref": "main"}``).
+         *     - ``lsst_doc`` — follow the highest LSST document version tag
+         *       (``v<major>.<minor>[.<patch>]``, e.g. ``v1.0``).
+         *     - ``eups_major_release`` — follow the highest two-component EUPS
+         *       release tag (``v<major>_<minor>``, e.g. ``v12_0``).
+         *     - ``eups_weekly_release`` — follow the highest EUPS weekly tag
+         *       (``w_<year>_<week>``, e.g. ``w_2026_30``).
+         *     - ``eups_daily_release`` — follow the highest EUPS daily tag
+         *       (``d_<year>_<month>_<day>``, e.g. ``d_2026_07_29``).
+         *     - ``semver_release`` — follow the highest semantic-version tag
+         *       overall (e.g. ``v2.3.0``).
+         *     - ``semver_major`` — follow the highest release within one major
+         *       version line (used by auto-created ``major`` editions).
+         *     - ``semver_minor`` — follow the highest patch within one minor
+         *       version line (used by auto-created ``minor`` editions).
+         *     - ``alternate_git_ref`` — like ``git_ref``, but match only builds
+         *       whose ``alternate_name`` equals the edition's variant scope.
          * @enum {string}
          */
         TrackingMode: "git_ref" | "lsst_doc" | "eups_major_release" | "eups_weekly_release" | "eups_daily_release" | "semver_release" | "semver_major" | "semver_minor" | "alternate_git_ref";
         /**
          * UrlScheme
          * @description URL scheme for serving documentation within an organization.
+         *
+         *     - ``subdomain`` — each project is served on its own subdomain of the
+         *       organization's base domain (e.g. ``https://pipelines.lsst.io``).
+         *     - ``path_prefix`` — each project is served under a path prefix on a
+         *       shared host (e.g. ``https://lsst.io/pipelines``).
          * @enum {string}
          */
         UrlScheme: "subdomain" | "path_prefix";
@@ -2599,523 +4149,6 @@ export interface components {
             /** Context */
             ctx?: Record<string, never>;
         };
-        /**
-         * Edition
-         * @description Response model for an edition.
-         */
-        docverse__client__models__editions__Edition: {
-            /**
-             * Self Url
-             * @description URL to this edition resource.
-             */
-            self_url: string;
-            /**
-             * Project Url
-             * @description URL to the parent project.
-             */
-            project_url: string;
-            /**
-             * Build Url
-             * @description URL to the currently published build.
-             */
-            build_url?: string | null;
-            /**
-             * Published Url
-             * @description Public URL where this edition is served.
-             */
-            published_url?: string | null;
-            /**
-             * History Url
-             * @description URL to the build history for this edition.
-             */
-            history_url: string;
-            /**
-             * Rollback Url
-             * @description URL to roll back this edition to a previous build.
-             */
-            rollback_url: string;
-            /**
-             * Slug
-             * @description URL-safe identifier for the edition.
-             */
-            slug: string;
-            /**
-             * Title
-             * @description Display title for the edition.
-             */
-            title: string;
-            kind: components["schemas"]["EditionKind"];
-            /** @description How this edition tracks builds for automatic updates. */
-            tracking_mode: components["schemas"]["TrackingMode"];
-            /**
-             * Tracking Params
-             * @description Parameters for the tracking mode.
-             */
-            tracking_params?: {
-                [key: string]: unknown;
-            } | null;
-            /**
-             * Lifecycle Exempt
-             * @description Whether this edition is exempt from lifecycle rules.
-             */
-            lifecycle_exempt: boolean;
-            /** @description CDN publish state for the edition's current build. ``None`` when the edition has never been associated with a build or predates publish-status tracking. */
-            publish_status?: components["schemas"]["PublishStatus"] | null;
-            /**
-             * Date Created
-             * Format: date-time
-             * @description Timestamp when the edition was created.
-             */
-            date_created: string;
-            /**
-             * Date Updated
-             * Format: date-time
-             * @description Timestamp of the most recent update.
-             */
-            date_updated: string;
-        };
-        /**
-         * KeeperSyncEditionStatus
-         * @description One Docverse-side edition with its keeper-sync attribution.
-         *
-         *     Reflects a left-join from the Docverse ``editions`` table to
-         *     ``keeper_sync_state``: every Docverse edition appears, but the LTD
-         *     columns (``ltd_id`` / ``ltd_slug`` / ``date_last_synced``) are
-         *     populated only when keeper-sync has imported the edition.
-         */
-        docverse__client__models__keeper_sync__KeeperSyncEditionStatus: {
-            /**
-             * Edition Url
-             * Format: uri
-             * @description Canonical ``GET /orgs/{org}/projects/{project}/editions/{edition}`` URL for this edition.
-             */
-            edition_url: string;
-            /**
-             * Slug
-             * @description Docverse edition slug.
-             */
-            slug: string;
-            /** @description Docverse edition kind (``main``, ``draft``, ...). */
-            kind: components["schemas"]["EditionKind"];
-            /**
-             * Ltd Id
-             * @description LTD edition id from the linked ``keeper_sync_state`` row, or ``null`` when no row links this edition.
-             */
-            ltd_id?: number | null;
-            /**
-             * Ltd Slug
-             * @description LTD edition slug from the linked state row, or ``null`` when no row links this edition.
-             */
-            ltd_slug?: string | null;
-            /**
-             * Date Last Synced
-             * @description Most recent successful sync timestamp for this edition, or ``null`` if not yet synced.
-             */
-            date_last_synced?: string | null;
-        };
-        /**
-         * KeeperSyncRun
-         * @description Response model for a keeper sync run resource.
-         */
-        docverse__client__models__keeper_sync__KeeperSyncRun: {
-            /**
-             * Self Url
-             * Format: uri
-             * @description URL to this run resource.
-             */
-            self_url: string;
-            /**
-             * Jobs Url
-             * Format: uri
-             * @description URL to ``GET`` for the run's child queue-job listing (the org-scoped jobs collection filtered to this run, ``GET /orgs/{org}/jobs?run={id}``). Always present so clients can paginate the run's children without constructing the URL by hand.
-             */
-            jobs_url: string;
-            /**
-             * Id
-             * @description Public Crockford Base32 identifier for the run.
-             */
-            id: string;
-            /** @description Kind of run. */
-            kind: components["schemas"]["KeeperSyncRunKind"];
-            /** @description Lifecycle status. */
-            status: components["schemas"]["KeeperSyncRunStatus"];
-            /**
-             * Pending Count
-             * @description Number of fanned-out child queue jobs still in a non-terminal state (queued or in_progress).
-             */
-            pending_count: number;
-            /**
-             * Succeeded Count
-             * @description Number of fanned-out child queue jobs that succeeded.
-             */
-            succeeded_count: number;
-            /**
-             * Failed Count
-             * @description Number of fanned-out child queue jobs that ended in a failure state (failed or cancelled).
-             */
-            failed_count: number;
-            /**
-             * Total Count
-             * @description Total number of fanned-out child queue jobs attributed to this run.
-             */
-            total_count: number;
-            /**
-             * Date Started
-             * Format: date-time
-             * @description Timestamp when the run row was created.
-             */
-            date_started: string;
-            /**
-             * Date Finished
-             * @description Timestamp when the run reached a terminal status.
-             */
-            date_finished?: string | null;
-            /**
-             * Date Last Activity
-             * @description Most-recent state-transition timestamp across the run's attributed child queue jobs. Operators can poll this to detect a stuck run without paginating its children. ``null`` while the run has no attributed queue jobs yet.
-             */
-            date_last_activity?: string | null;
-        };
-        /**
-         * Organization
-         * @description Organization response model with HATEOAS self_url.
-         */
-        docverse__handlers__admin__models__Organization: {
-            /**
-             * Self Url
-             * @description URL to this organization resource.
-             */
-            self_url: string;
-            /**
-             * Dashboard Template Url
-             * @description URL to the organization's default dashboard-template binding.
-             */
-            dashboard_template_url: string;
-            /**
-             * Keeper Sync Url
-             * @description URL to the organization's LTD Keeper sync configuration.
-             */
-            keeper_sync_url: string;
-            /**
-             * Slug
-             * @description URL-safe identifier for the organization.
-             */
-            slug: string;
-            /**
-             * Title
-             * @description Display title for the organization.
-             */
-            title: string;
-            /**
-             * Base Domain
-             * @description Base domain for documentation sites.
-             */
-            base_domain: string;
-            /** @description URL scheme for project documentation. */
-            url_scheme: components["schemas"]["UrlScheme"];
-            /**
-             * Root Path Prefix
-             * @description Root path prefix when using path_prefix URL scheme.
-             */
-            root_path_prefix: string;
-            /**
-             * Slug Rewrite Rules
-             * @description Rules for rewriting project slugs in URLs.
-             */
-            slug_rewrite_rules: {
-                [key: string]: unknown;
-            }[] | null;
-            /** @description Rules governing build lifecycle. */
-            lifecycle_rules: components["schemas"]["LifecycleRuleSet"] | null;
-            /** @description Default configuration for the __main edition on new projects. */
-            default_edition_config?: components["schemas"]["DefaultEditionConfig"] | null;
-            /**
-             * Purgatory Retention
-             * @description Duration in seconds to retain inactive builds in purgatory before deletion.
-             */
-            purgatory_retention: number;
-            /** @description Object storage service used for publishing. */
-            publishing_store?: components["schemas"]["OrganizationServiceSummary"] | null;
-            /** @description Object storage service used for staging uploads. */
-            staging_store?: components["schemas"]["OrganizationServiceSummary"] | null;
-            /** @description CDN service for cache purging and edge data. */
-            cdn_service?: components["schemas"]["OrganizationServiceSummary"] | null;
-            /** @description DNS service for subdomain registration. */
-            dns_service?: components["schemas"]["OrganizationServiceSummary"] | null;
-            /**
-             * Date Created
-             * Format: date-time
-             * @description Timestamp when the organization was created.
-             */
-            date_created: string;
-            /**
-             * Date Updated
-             * Format: date-time
-             * @description Timestamp of the most recent update.
-             */
-            date_updated: string;
-            /** Org Url */
-            org_url: string;
-        };
-        /**
-         * KeeperSyncEditionStatus
-         * @description Edition-status entry with HATEOAS ``edition_url``.
-         */
-        docverse__handlers__orgs__keeper_sync_models__KeeperSyncEditionStatus: {
-            /**
-             * Edition Url
-             * Format: uri
-             * @description Canonical ``GET /orgs/{org}/projects/{project}/editions/{edition}`` URL for this edition.
-             */
-            edition_url: string;
-            /**
-             * Slug
-             * @description Docverse edition slug.
-             */
-            slug: string;
-            /** @description Docverse edition kind (``main``, ``draft``, ...). */
-            kind: components["schemas"]["EditionKind"];
-            /**
-             * Ltd Id
-             * @description LTD edition id from the linked ``keeper_sync_state`` row, or ``null`` when no row links this edition.
-             */
-            ltd_id?: number | null;
-            /**
-             * Ltd Slug
-             * @description LTD edition slug from the linked state row, or ``null`` when no row links this edition.
-             */
-            ltd_slug?: string | null;
-            /**
-             * Date Last Synced
-             * @description Most recent successful sync timestamp for this edition, or ``null`` if not yet synced.
-             */
-            date_last_synced?: string | null;
-        };
-        /**
-         * KeeperSyncRun
-         * @description Keeper sync run response model with HATEOAS ``self_url``.
-         */
-        docverse__handlers__orgs__keeper_sync_models__KeeperSyncRun: {
-            /**
-             * Self Url
-             * Format: uri
-             * @description URL to this run resource.
-             */
-            self_url: string;
-            /**
-             * Jobs Url
-             * Format: uri
-             * @description URL to ``GET`` for the run's child queue-job listing (the org-scoped jobs collection filtered to this run, ``GET /orgs/{org}/jobs?run={id}``). Always present so clients can paginate the run's children without constructing the URL by hand.
-             */
-            jobs_url: string;
-            /**
-             * Id
-             * @description Public Crockford Base32 identifier for the run.
-             */
-            id: string;
-            /** @description Kind of run. */
-            kind: components["schemas"]["KeeperSyncRunKind"];
-            /** @description Lifecycle status. */
-            status: components["schemas"]["KeeperSyncRunStatus"];
-            /**
-             * Pending Count
-             * @description Number of fanned-out child queue jobs still in a non-terminal state (queued or in_progress).
-             */
-            pending_count: number;
-            /**
-             * Succeeded Count
-             * @description Number of fanned-out child queue jobs that succeeded.
-             */
-            succeeded_count: number;
-            /**
-             * Failed Count
-             * @description Number of fanned-out child queue jobs that ended in a failure state (failed or cancelled).
-             */
-            failed_count: number;
-            /**
-             * Total Count
-             * @description Total number of fanned-out child queue jobs attributed to this run.
-             */
-            total_count: number;
-            /**
-             * Date Started
-             * Format: date-time
-             * @description Timestamp when the run row was created.
-             */
-            date_started: string;
-            /**
-             * Date Finished
-             * @description Timestamp when the run reached a terminal status.
-             */
-            date_finished?: string | null;
-            /**
-             * Date Last Activity
-             * @description Most-recent state-transition timestamp across the run's attributed child queue jobs. Operators can poll this to detect a stuck run without paginating its children. ``null`` while the run has no attributed queue jobs yet.
-             */
-            date_last_activity?: string | null;
-        };
-        /**
-         * Edition
-         * @description Edition response model with HATEOAS URLs.
-         */
-        docverse__handlers__orgs__models__Edition: {
-            /**
-             * Self Url
-             * @description URL to this edition resource.
-             */
-            self_url: string;
-            /**
-             * Project Url
-             * @description URL to the parent project.
-             */
-            project_url: string;
-            /**
-             * Build Url
-             * @description URL to the currently published build.
-             */
-            build_url?: string | null;
-            /**
-             * Published Url
-             * @description Public URL where this edition is served.
-             */
-            published_url?: string | null;
-            /**
-             * History Url
-             * @description URL to the build history for this edition.
-             */
-            history_url: string;
-            /**
-             * Rollback Url
-             * @description URL to roll back this edition to a previous build.
-             */
-            rollback_url: string;
-            /**
-             * Slug
-             * @description URL-safe identifier for the edition.
-             */
-            slug: string;
-            /**
-             * Title
-             * @description Display title for the edition.
-             */
-            title: string;
-            kind: components["schemas"]["EditionKind"];
-            /** @description How this edition tracks builds for automatic updates. */
-            tracking_mode: components["schemas"]["TrackingMode"];
-            /**
-             * Tracking Params
-             * @description Parameters for the tracking mode.
-             */
-            tracking_params?: {
-                [key: string]: unknown;
-            } | null;
-            /**
-             * Lifecycle Exempt
-             * @description Whether this edition is exempt from lifecycle rules.
-             */
-            lifecycle_exempt: boolean;
-            /** @description CDN publish state for the edition's current build. ``None`` when the edition has never been associated with a build or predates publish-status tracking. */
-            publish_status?: components["schemas"]["PublishStatus"] | null;
-            /**
-             * Date Created
-             * Format: date-time
-             * @description Timestamp when the edition was created.
-             */
-            date_created: string;
-            /**
-             * Date Updated
-             * Format: date-time
-             * @description Timestamp of the most recent update.
-             */
-            date_updated: string;
-        };
-        /**
-         * Organization
-         * @description Organization response model with HATEOAS URLs.
-         */
-        docverse__handlers__orgs__models__Organization: {
-            /**
-             * Self Url
-             * @description URL to this organization resource.
-             */
-            self_url: string;
-            /**
-             * Dashboard Template Url
-             * @description URL to the organization's default dashboard-template binding.
-             */
-            dashboard_template_url: string;
-            /**
-             * Keeper Sync Url
-             * @description URL to the organization's LTD Keeper sync configuration.
-             */
-            keeper_sync_url: string;
-            /**
-             * Slug
-             * @description URL-safe identifier for the organization.
-             */
-            slug: string;
-            /**
-             * Title
-             * @description Display title for the organization.
-             */
-            title: string;
-            /**
-             * Base Domain
-             * @description Base domain for documentation sites.
-             */
-            base_domain: string;
-            /** @description URL scheme for project documentation. */
-            url_scheme: components["schemas"]["UrlScheme"];
-            /**
-             * Root Path Prefix
-             * @description Root path prefix when using path_prefix URL scheme.
-             */
-            root_path_prefix: string;
-            /**
-             * Slug Rewrite Rules
-             * @description Rules for rewriting project slugs in URLs.
-             */
-            slug_rewrite_rules: {
-                [key: string]: unknown;
-            }[] | null;
-            /** @description Rules governing build lifecycle. */
-            lifecycle_rules: components["schemas"]["LifecycleRuleSet"] | null;
-            /** @description Default configuration for the __main edition on new projects. */
-            default_edition_config?: components["schemas"]["DefaultEditionConfig"] | null;
-            /**
-             * Purgatory Retention
-             * @description Duration in seconds to retain inactive builds in purgatory before deletion.
-             */
-            purgatory_retention: number;
-            /** @description Object storage service used for publishing. */
-            publishing_store?: components["schemas"]["OrganizationServiceSummary"] | null;
-            /** @description Object storage service used for staging uploads. */
-            staging_store?: components["schemas"]["OrganizationServiceSummary"] | null;
-            /** @description CDN service for cache purging and edge data. */
-            cdn_service?: components["schemas"]["OrganizationServiceSummary"] | null;
-            /** @description DNS service for subdomain registration. */
-            dns_service?: components["schemas"]["OrganizationServiceSummary"] | null;
-            /**
-             * Date Created
-             * Format: date-time
-             * @description Timestamp when the organization was created.
-             */
-            date_created: string;
-            /**
-             * Date Updated
-             * Format: date-time
-             * @description Timestamp of the most recent update.
-             */
-            date_updated: string;
-            /** Services Url */
-            services_url: string;
-            /** Credentials Url */
-            credentials_url: string;
-            /** Projects Url */
-            projects_url: string;
-            /** Members Url */
-            members_url: string;
-        };
     };
     responses: never;
     parameters: never;
@@ -3125,7 +4158,7 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
-    admin_get_organizations_docverse_api_admin_orgs_get: {
+    admin_get_organizations: {
         parameters: {
             query?: never;
             header?: never;
@@ -3140,12 +4173,21 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["docverse__handlers__admin__models__Organization"][];
+                    "application/json": components["schemas"]["AdminOrganization"][];
+                };
+            };
+            /** @description The caller lacks the role required for this operation. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorModel"];
                 };
             };
         };
     };
-    admin_post_organization_docverse_api_admin_orgs_post: {
+    admin_post_organization: {
         parameters: {
             query?: never;
             header?: never;
@@ -3164,7 +4206,25 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["docverse__handlers__admin__models__Organization"];
+                    "application/json": components["schemas"]["AdminOrganization"];
+                };
+            };
+            /** @description The caller lacks the role required for this operation. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description The request conflicts with the current state of the resource. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorModel"];
                 };
             };
             /** @description Validation Error */
@@ -3178,7 +4238,7 @@ export interface operations {
             };
         };
     };
-    admin_get_organization_docverse_api_admin_orgs__org__get: {
+    admin_get_organization: {
         parameters: {
             query?: never;
             header?: never;
@@ -3196,7 +4256,25 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["docverse__handlers__admin__models__Organization"];
+                    "application/json": components["schemas"]["AdminOrganization"];
+                };
+            };
+            /** @description The caller lacks the role required for this operation. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description A resource addressed by the request path does not exist. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorModel"];
                 };
             };
             /** @description Validation Error */
@@ -3210,7 +4288,7 @@ export interface operations {
             };
         };
     };
-    admin_delete_organization_docverse_api_admin_orgs__org__delete: {
+    admin_delete_organization: {
         parameters: {
             query?: never;
             header?: never;
@@ -3229,6 +4307,24 @@ export interface operations {
                 };
                 content?: never;
             };
+            /** @description The caller lacks the role required for this operation. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description A resource addressed by the request path does not exist. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorModel"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -3240,7 +4336,7 @@ export interface operations {
             };
         };
     };
-    admin_post_sentry_test_docverse_api_admin_sentry_test_post: {
+    admin_post_sentry_test: {
         parameters: {
             query?: never;
             header?: never;
@@ -3262,6 +4358,15 @@ export interface operations {
                     "application/json": unknown;
                 };
             };
+            /** @description The caller lacks the role required for this operation. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorModel"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -3280,7 +4385,45 @@ export interface operations {
             };
         };
     };
-    get_organization_docverse_api_orgs__org__get: {
+    get_organizations: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrganizationSummary"][];
+                };
+            };
+            /** @description The caller lacks the role required for this operation. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description A resource addressed by the request path does not exist. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    get_organization: {
         parameters: {
             query?: never;
             header?: never;
@@ -3298,7 +4441,32 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["docverse__handlers__orgs__models__Organization"];
+                    "application/json": components["schemas"]["Organization"];
+                };
+            };
+            /** @description The caller's ``If-None-Match`` already matched this organization, so no body is sent. The ``ETag`` is repeated so a poller can carry it into its next request. */
+            304: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The caller lacks the role required for this operation. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description A resource addressed by the request path does not exist. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorModel"];
                 };
             };
             /** @description Validation Error */
@@ -3312,7 +4480,7 @@ export interface operations {
             };
         };
     };
-    patch_organization_docverse_api_orgs__org__patch: {
+    patch_organization: {
         parameters: {
             query?: never;
             header?: never;
@@ -3334,7 +4502,25 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["docverse__handlers__orgs__models__Organization"];
+                    "application/json": components["schemas"]["Organization"];
+                };
+            };
+            /** @description The caller lacks the role required for this operation. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description A resource addressed by the request path does not exist. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorModel"];
                 };
             };
             /** @description Validation Error */
@@ -3348,7 +4534,7 @@ export interface operations {
             };
         };
     };
-    get_projects_docverse_api_orgs__org__projects_get: {
+    get_projects: {
         parameters: {
             query?: {
                 /** @description Sort order for results. */
@@ -3359,6 +4545,10 @@ export interface operations {
                 limit?: number;
                 /** @description Fuzzy search query matched against project slugs and titles. Results are ordered by relevance and support cursor pagination via the ``Link`` header. */
                 q?: string | null;
+                /** @description Only return projects whose ``date_updated`` is at or after this instant, so a poller can ask for just what changed since its last pass. The bound is inclusive and must carry a timezone offset; a naive timestamp is rejected. A project's clock advances on a metadata edit, a GitHub-binding resolve, a deletion, and a repoint of its default edition. */
+                updated_since?: string | null;
+                /** @description Also return soft-deleted projects, each with its ``date_deleted`` set, and count them in ``X-Total-Count``. Defaults to false. Applies to the ``q`` search path as well as the ordered listing, so a consumer mirroring the listing sees a deletion as a row it can act on rather than as a project that silently stopped appearing. */
+                include_deleted?: boolean;
             };
             header?: never;
             path: {
@@ -3378,6 +4568,31 @@ export interface operations {
                     "application/json": components["schemas"]["Project"][];
                 };
             };
+            /** @description The caller's ``If-None-Match`` already matched this page, so no body is sent. The ``ETag`` is repeated so a poller can carry it into its next request. The tag is weak: it does not retire on a configuration-only edit to an embedded default edition. */
+            304: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The caller lacks the role required for this operation. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description A resource addressed by the request path does not exist. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorModel"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -3389,7 +4604,7 @@ export interface operations {
             };
         };
     };
-    post_project_docverse_api_orgs__org__projects_post: {
+    post_project: {
         parameters: {
             query?: never;
             header?: never;
@@ -3414,6 +4629,24 @@ export interface operations {
                     "application/json": components["schemas"]["Project"];
                 };
             };
+            /** @description The caller lacks the role required for this operation. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description A resource addressed by the request path does not exist. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorModel"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -3425,9 +4658,12 @@ export interface operations {
             };
         };
     };
-    get_project_docverse_api_orgs__org__projects__project__get: {
+    get_project: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Return the project even if it has been soft-deleted, with its ``date_deleted`` set. Defaults to false, in which case a deleted project is a 404. Slugs are never reused after a delete, so this can only ever resolve the project that already owned the slug. Write endpoints ignore this and still 404 on a deleted project. */
+                include_deleted?: boolean;
+            };
             header?: never;
             path: {
                 /** @description Organization slug. */
@@ -3448,6 +4684,31 @@ export interface operations {
                     "application/json": components["schemas"]["Project"];
                 };
             };
+            /** @description The caller's ``If-None-Match`` already matched this project, so no body is sent. The ``ETag`` is repeated so a poller can carry it into its next request. */
+            304: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The caller lacks the role required for this operation. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description A resource addressed by the request path does not exist. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorModel"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -3459,7 +4720,7 @@ export interface operations {
             };
         };
     };
-    delete_project_docverse_api_orgs__org__projects__project__delete: {
+    delete_project: {
         parameters: {
             query?: never;
             header?: never;
@@ -3480,6 +4741,24 @@ export interface operations {
                 };
                 content?: never;
             };
+            /** @description The caller lacks the role required for this operation. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description A resource addressed by the request path does not exist. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorModel"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -3491,7 +4770,7 @@ export interface operations {
             };
         };
     };
-    patch_project_docverse_api_orgs__org__projects__project__patch: {
+    patch_project: {
         parameters: {
             query?: never;
             header?: never;
@@ -3518,6 +4797,24 @@ export interface operations {
                     "application/json": components["schemas"]["Project"];
                 };
             };
+            /** @description The caller lacks the role required for this operation. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description A resource addressed by the request path does not exist. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorModel"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -3529,7 +4826,7 @@ export interface operations {
             };
         };
     };
-    get_builds_docverse_api_orgs__org__projects__project__builds_get: {
+    get_builds: {
         parameters: {
             query?: {
                 /** @description Opaque pagination cursor from a previous response's ``Link`` header. */
@@ -3559,6 +4856,24 @@ export interface operations {
                     "application/json": components["schemas"]["Build"][];
                 };
             };
+            /** @description The caller lacks the role required for this operation. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description A resource addressed by the request path does not exist. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorModel"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -3570,7 +4885,7 @@ export interface operations {
             };
         };
     };
-    post_build_docverse_api_orgs__org__projects__project__builds_post: {
+    post_build: {
         parameters: {
             query?: never;
             header?: never;
@@ -3597,6 +4912,24 @@ export interface operations {
                     "application/json": components["schemas"]["Build"];
                 };
             };
+            /** @description The caller lacks the role required for this operation. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description A resource addressed by the request path does not exist. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorModel"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -3608,7 +4941,7 @@ export interface operations {
             };
         };
     };
-    get_build_docverse_api_orgs__org__projects__project__builds__build__get: {
+    get_build: {
         parameters: {
             query?: never;
             header?: never;
@@ -3633,6 +4966,24 @@ export interface operations {
                     "application/json": components["schemas"]["Build"];
                 };
             };
+            /** @description The caller lacks the role required for this operation. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description A resource addressed by the request path does not exist. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorModel"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -3644,7 +4995,7 @@ export interface operations {
             };
         };
     };
-    delete_build_docverse_api_orgs__org__projects__project__builds__build__delete: {
+    delete_build: {
         parameters: {
             query?: never;
             header?: never;
@@ -3667,6 +5018,33 @@ export interface operations {
                 };
                 content?: never;
             };
+            /** @description The caller lacks the role required for this operation. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description A resource addressed by the request path does not exist. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description The request conflicts with the current state of the resource. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorModel"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -3678,7 +5056,7 @@ export interface operations {
             };
         };
     };
-    patch_build_docverse_api_orgs__org__projects__project__builds__build__patch: {
+    patch_build: {
         parameters: {
             query?: never;
             header?: never;
@@ -3707,6 +5085,24 @@ export interface operations {
                     "application/json": components["schemas"]["Build"];
                 };
             };
+            /** @description The caller lacks the role required for this operation. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description A resource addressed by the request path does not exist. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorModel"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -3718,7 +5114,70 @@ export interface operations {
             };
         };
     };
-    get_editions_docverse_api_orgs__org__projects__project__editions_get: {
+    post_build_restore: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Organization slug. */
+                org: string;
+                /** @description Project slug. */
+                project: string;
+                /** @description Base32-encoded build identifier. */
+                build: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Build"];
+                };
+            };
+            /** @description The caller lacks the role required for this operation. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description A resource addressed by the request path does not exist. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description The request conflicts with the current state of the resource. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_editions: {
         parameters: {
             query?: {
                 /** @description Sort order for results. */
@@ -3747,7 +5206,25 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["docverse__handlers__orgs__models__Edition"][];
+                    "application/json": components["schemas"]["Edition"][];
+                };
+            };
+            /** @description The caller lacks the role required for this operation. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description A resource addressed by the request path does not exist. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorModel"];
                 };
             };
             /** @description Validation Error */
@@ -3761,7 +5238,7 @@ export interface operations {
             };
         };
     };
-    post_edition_docverse_api_orgs__org__projects__project__editions_post: {
+    post_edition: {
         parameters: {
             query?: never;
             header?: never;
@@ -3785,7 +5262,25 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["docverse__handlers__orgs__models__Edition"];
+                    "application/json": components["schemas"]["Edition"];
+                };
+            };
+            /** @description The caller lacks the role required for this operation. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description A resource addressed by the request path does not exist. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorModel"];
                 };
             };
             /** @description Validation Error */
@@ -3799,7 +5294,7 @@ export interface operations {
             };
         };
     };
-    get_edition_docverse_api_orgs__org__projects__project__editions__edition__get: {
+    get_edition: {
         parameters: {
             query?: never;
             header?: never;
@@ -3821,7 +5316,25 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["docverse__handlers__orgs__models__Edition"];
+                    "application/json": components["schemas"]["Edition"];
+                };
+            };
+            /** @description The caller lacks the role required for this operation. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description A resource addressed by the request path does not exist. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorModel"];
                 };
             };
             /** @description Validation Error */
@@ -3835,7 +5348,7 @@ export interface operations {
             };
         };
     };
-    delete_edition_docverse_api_orgs__org__projects__project__editions__edition__delete: {
+    delete_edition: {
         parameters: {
             query?: never;
             header?: never;
@@ -3858,6 +5371,24 @@ export interface operations {
                 };
                 content?: never;
             };
+            /** @description The caller lacks the role required for this operation. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description A resource addressed by the request path does not exist. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorModel"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -3869,7 +5400,7 @@ export interface operations {
             };
         };
     };
-    patch_edition_docverse_api_orgs__org__projects__project__editions__edition__patch: {
+    patch_edition: {
         parameters: {
             query?: never;
             header?: never;
@@ -3895,7 +5426,25 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["docverse__handlers__orgs__models__Edition"];
+                    "application/json": components["schemas"]["Edition"];
+                };
+            };
+            /** @description The caller lacks the role required for this operation. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description A resource addressed by the request path does not exist. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorModel"];
                 };
             };
             /** @description Validation Error */
@@ -3909,7 +5458,7 @@ export interface operations {
             };
         };
     };
-    get_edition_history_docverse_api_orgs__org__projects__project__editions__edition__history_get: {
+    get_edition_history: {
         parameters: {
             query?: {
                 /** @description Opaque pagination cursor from a previous response's ``Link`` header. */
@@ -3941,6 +5490,24 @@ export interface operations {
                     "application/json": components["schemas"]["EditionBuildHistoryResponse"][];
                 };
             };
+            /** @description The caller lacks the role required for this operation. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description A resource addressed by the request path does not exist. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorModel"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -3952,7 +5519,7 @@ export interface operations {
             };
         };
     };
-    post_edition_rollback_docverse_api_orgs__org__projects__project__editions__edition__rollback_post: {
+    post_edition_rollback: {
         parameters: {
             query?: never;
             header?: never;
@@ -3978,7 +5545,25 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["docverse__handlers__orgs__models__Edition"];
+                    "application/json": components["schemas"]["Edition"];
+                };
+            };
+            /** @description The caller lacks the role required for this operation. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description A resource addressed by the request path does not exist. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorModel"];
                 };
             };
             /** @description Validation Error */
@@ -3992,7 +5577,7 @@ export interface operations {
             };
         };
     };
-    get_members_docverse_api_orgs__org__members_get: {
+    get_members: {
         parameters: {
             query?: never;
             header?: never;
@@ -4013,6 +5598,24 @@ export interface operations {
                     "application/json": components["schemas"]["OrgMembership"][];
                 };
             };
+            /** @description The caller lacks the role required for this operation. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description A resource addressed by the request path does not exist. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorModel"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -4024,7 +5627,7 @@ export interface operations {
             };
         };
     };
-    post_member_docverse_api_orgs__org__members_post: {
+    post_member: {
         parameters: {
             query?: never;
             header?: never;
@@ -4049,6 +5652,33 @@ export interface operations {
                     "application/json": components["schemas"]["OrgMembership"];
                 };
             };
+            /** @description The caller lacks the role required for this operation. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description A resource addressed by the request path does not exist. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description The request conflicts with the current state of the resource. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorModel"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -4060,7 +5690,7 @@ export interface operations {
             };
         };
     };
-    get_member_docverse_api_orgs__org__members__member__get: {
+    get_member: {
         parameters: {
             query?: never;
             header?: never;
@@ -4083,6 +5713,24 @@ export interface operations {
                     "application/json": components["schemas"]["OrgMembership"];
                 };
             };
+            /** @description The caller lacks the role required for this operation. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description A resource addressed by the request path does not exist. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorModel"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -4094,7 +5742,7 @@ export interface operations {
             };
         };
     };
-    delete_member_docverse_api_orgs__org__members__member__delete: {
+    delete_member: {
         parameters: {
             query?: never;
             header?: never;
@@ -4115,6 +5763,24 @@ export interface operations {
                 };
                 content?: never;
             };
+            /** @description The caller lacks the role required for this operation. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description A resource addressed by the request path does not exist. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorModel"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -4126,7 +5792,63 @@ export interface operations {
             };
         };
     };
-    get_credentials_docverse_api_orgs__org__credentials_get: {
+    patch_member: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Organization slug. */
+                org: string;
+                /** @description Member identifier in ``{type}:{principal}`` format (e.g., ``user:someuser``). */
+                member: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OrgMembershipUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrgMembership"];
+                };
+            };
+            /** @description The caller lacks the role required for this operation. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description A resource addressed by the request path does not exist. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_credentials: {
         parameters: {
             query?: never;
             header?: never;
@@ -4147,6 +5869,24 @@ export interface operations {
                     "application/json": components["schemas"]["OrganizationCredentialResponse"][];
                 };
             };
+            /** @description The caller lacks the role required for this operation. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description A resource addressed by the request path does not exist. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorModel"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -4158,7 +5898,7 @@ export interface operations {
             };
         };
     };
-    post_credential_docverse_api_orgs__org__credentials_post: {
+    post_credential: {
         parameters: {
             query?: never;
             header?: never;
@@ -4183,6 +5923,24 @@ export interface operations {
                     "application/json": components["schemas"]["OrganizationCredentialResponse"];
                 };
             };
+            /** @description The caller lacks the role required for this operation. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description A resource addressed by the request path does not exist. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorModel"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -4194,7 +5952,7 @@ export interface operations {
             };
         };
     };
-    get_credential_docverse_api_orgs__org__credentials__credential__get: {
+    get_credential: {
         parameters: {
             query?: never;
             header?: never;
@@ -4217,6 +5975,24 @@ export interface operations {
                     "application/json": components["schemas"]["OrganizationCredentialResponse"];
                 };
             };
+            /** @description The caller lacks the role required for this operation. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description A resource addressed by the request path does not exist. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorModel"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -4228,7 +6004,7 @@ export interface operations {
             };
         };
     };
-    delete_credential_docverse_api_orgs__org__credentials__credential__delete: {
+    delete_credential: {
         parameters: {
             query?: never;
             header?: never;
@@ -4249,6 +6025,24 @@ export interface operations {
                 };
                 content?: never;
             };
+            /** @description The caller lacks the role required for this operation. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description A resource addressed by the request path does not exist. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorModel"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -4260,7 +6054,7 @@ export interface operations {
             };
         };
     };
-    get_services_docverse_api_orgs__org__services_get: {
+    get_services: {
         parameters: {
             query?: never;
             header?: never;
@@ -4281,6 +6075,24 @@ export interface operations {
                     "application/json": components["schemas"]["OrganizationServiceResponse"][];
                 };
             };
+            /** @description The caller lacks the role required for this operation. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description A resource addressed by the request path does not exist. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorModel"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -4292,7 +6104,7 @@ export interface operations {
             };
         };
     };
-    post_service_docverse_api_orgs__org__services_post: {
+    post_service: {
         parameters: {
             query?: never;
             header?: never;
@@ -4317,6 +6129,24 @@ export interface operations {
                     "application/json": components["schemas"]["OrganizationServiceResponse"];
                 };
             };
+            /** @description The caller lacks the role required for this operation. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description A resource addressed by the request path does not exist. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorModel"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -4328,7 +6158,7 @@ export interface operations {
             };
         };
     };
-    get_service_docverse_api_orgs__org__services__service__get: {
+    get_service: {
         parameters: {
             query?: never;
             header?: never;
@@ -4351,6 +6181,24 @@ export interface operations {
                     "application/json": components["schemas"]["OrganizationServiceResponse"];
                 };
             };
+            /** @description The caller lacks the role required for this operation. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description A resource addressed by the request path does not exist. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorModel"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -4362,7 +6210,7 @@ export interface operations {
             };
         };
     };
-    delete_service_docverse_api_orgs__org__services__service__delete: {
+    delete_service: {
         parameters: {
             query?: never;
             header?: never;
@@ -4383,6 +6231,24 @@ export interface operations {
                 };
                 content?: never;
             };
+            /** @description The caller lacks the role required for this operation. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description A resource addressed by the request path does not exist. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorModel"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -4394,7 +6260,7 @@ export interface operations {
             };
         };
     };
-    patch_service_docverse_api_orgs__org__services__service__patch: {
+    patch_service: {
         parameters: {
             query?: never;
             header?: never;
@@ -4421,6 +6287,24 @@ export interface operations {
                     "application/json": components["schemas"]["OrganizationServiceResponse"];
                 };
             };
+            /** @description The caller lacks the role required for this operation. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description A resource addressed by the request path does not exist. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorModel"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -4432,7 +6316,7 @@ export interface operations {
             };
         };
     };
-    post_dashboard_rebuild_docverse_api_orgs__org__projects__project__dashboard_rebuild_post: {
+    post_dashboard_rebuild: {
         parameters: {
             query?: never;
             header?: never;
@@ -4455,6 +6339,33 @@ export interface operations {
                     "application/json": components["schemas"]["DashboardRebuildResponse"];
                 };
             };
+            /** @description The caller lacks the role required for this operation. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description A resource addressed by the request path does not exist. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description The request conflicts with the current state of the resource. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorModel"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -4466,7 +6377,7 @@ export interface operations {
             };
         };
     };
-    post_org_dashboard_rebuild_docverse_api_orgs__org__dashboard_rebuild_post: {
+    post_org_dashboard_rebuild: {
         parameters: {
             query?: never;
             header?: never;
@@ -4484,7 +6395,25 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["OrgDashboardRebuildEntry"][];
+                    "application/json": components["schemas"]["OrgDashboardRebuildResponse"];
+                };
+            };
+            /** @description The caller lacks the role required for this operation. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description A resource addressed by the request path does not exist. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorModel"];
                 };
             };
             /** @description Validation Error */
@@ -4498,7 +6427,7 @@ export interface operations {
             };
         };
     };
-    get_org_dashboard_template_docverse_api_orgs__org__dashboard_template_get: {
+    get_org_dashboard_template: {
         parameters: {
             query?: never;
             header?: never;
@@ -4519,6 +6448,24 @@ export interface operations {
                     "application/json": components["schemas"]["DashboardTemplateBindingResponse"];
                 };
             };
+            /** @description The caller lacks the role required for this operation. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description A resource addressed by the request path does not exist. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorModel"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -4530,7 +6477,7 @@ export interface operations {
             };
         };
     };
-    put_org_dashboard_template_docverse_api_orgs__org__dashboard_template_put: {
+    put_org_dashboard_template: {
         parameters: {
             query?: never;
             header?: never;
@@ -4555,6 +6502,24 @@ export interface operations {
                     "application/json": components["schemas"]["DashboardTemplateBindingResponse"];
                 };
             };
+            /** @description The caller lacks the role required for this operation. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description A resource addressed by the request path does not exist. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorModel"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -4566,7 +6531,7 @@ export interface operations {
             };
         };
     };
-    delete_org_dashboard_template_docverse_api_orgs__org__dashboard_template_delete: {
+    delete_org_dashboard_template: {
         parameters: {
             query?: never;
             header?: never;
@@ -4585,6 +6550,24 @@ export interface operations {
                 };
                 content?: never;
             };
+            /** @description The caller lacks the role required for this operation. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description A resource addressed by the request path does not exist. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorModel"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -4596,7 +6579,7 @@ export interface operations {
             };
         };
     };
-    sync_org_dashboard_template_docverse_api_orgs__org__dashboard_template_sync_post: {
+    sync_org_dashboard_template: {
         parameters: {
             query?: never;
             header?: never;
@@ -4617,6 +6600,24 @@ export interface operations {
                     "application/json": components["schemas"]["DashboardTemplateSyncEnqueuedResponse"];
                 };
             };
+            /** @description The caller lacks the role required for this operation. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description A resource addressed by the request path does not exist. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorModel"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -4628,7 +6629,7 @@ export interface operations {
             };
         };
     };
-    get_project_dashboard_template_docverse_api_orgs__org__projects__project__dashboard_template_get: {
+    get_project_dashboard_template: {
         parameters: {
             query?: never;
             header?: never;
@@ -4651,6 +6652,24 @@ export interface operations {
                     "application/json": components["schemas"]["DashboardTemplateBindingResponse"];
                 };
             };
+            /** @description The caller lacks the role required for this operation. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description A resource addressed by the request path does not exist. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorModel"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -4662,7 +6681,7 @@ export interface operations {
             };
         };
     };
-    put_project_dashboard_template_docverse_api_orgs__org__projects__project__dashboard_template_put: {
+    put_project_dashboard_template: {
         parameters: {
             query?: never;
             header?: never;
@@ -4689,6 +6708,24 @@ export interface operations {
                     "application/json": components["schemas"]["DashboardTemplateBindingResponse"];
                 };
             };
+            /** @description The caller lacks the role required for this operation. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description A resource addressed by the request path does not exist. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorModel"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -4700,7 +6737,7 @@ export interface operations {
             };
         };
     };
-    delete_project_dashboard_template_docverse_api_orgs__org__projects__project__dashboard_template_delete: {
+    delete_project_dashboard_template: {
         parameters: {
             query?: never;
             header?: never;
@@ -4721,6 +6758,24 @@ export interface operations {
                 };
                 content?: never;
             };
+            /** @description The caller lacks the role required for this operation. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description A resource addressed by the request path does not exist. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorModel"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -4732,7 +6787,7 @@ export interface operations {
             };
         };
     };
-    sync_project_dashboard_template_docverse_api_orgs__org__projects__project__dashboard_template_sync_post: {
+    sync_project_dashboard_template: {
         parameters: {
             query?: never;
             header?: never;
@@ -4755,6 +6810,24 @@ export interface operations {
                     "application/json": components["schemas"]["DashboardTemplateSyncEnqueuedResponse"];
                 };
             };
+            /** @description The caller lacks the role required for this operation. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description A resource addressed by the request path does not exist. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorModel"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -4766,7 +6839,7 @@ export interface operations {
             };
         };
     };
-    get_org_keeper_sync_config_docverse_api_orgs__org__keeper_sync_get: {
+    get_org_keeper_sync_config: {
         parameters: {
             query?: never;
             header?: never;
@@ -4787,6 +6860,24 @@ export interface operations {
                     "application/json": components["schemas"]["KeeperSyncConfig"];
                 };
             };
+            /** @description The caller lacks the role required for this operation. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description A resource addressed by the request path does not exist. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorModel"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -4798,7 +6889,7 @@ export interface operations {
             };
         };
     };
-    put_org_keeper_sync_config_docverse_api_orgs__org__keeper_sync_put: {
+    put_org_keeper_sync_config: {
         parameters: {
             query?: never;
             header?: never;
@@ -4810,7 +6901,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["KeeperSyncConfig"];
+                "application/json": components["schemas"]["KeeperSyncConfigWrite"];
             };
         };
         responses: {
@@ -4823,6 +6914,24 @@ export interface operations {
                     "application/json": components["schemas"]["KeeperSyncConfig"];
                 };
             };
+            /** @description The caller lacks the role required for this operation. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description A resource addressed by the request path does not exist. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorModel"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -4834,7 +6943,124 @@ export interface operations {
             };
         };
     };
-    get_org_keeper_sync_runs_docverse_api_orgs__org__keeper_sync_runs_get: {
+    patch_org_keeper_sync_config: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Organization slug. */
+                org: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["KeeperSyncConfigUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KeeperSyncConfig"];
+                };
+            };
+            /** @description The caller lacks the role required for this operation. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description A resource addressed by the request path does not exist. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    post_org_keeper_sync_scope_preview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Organization slug. */
+                org: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["KeeperSyncScopePreviewRequest"] | null;
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KeeperSyncScopePreview"];
+                };
+            };
+            /** @description The caller lacks the role required for this operation. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description A resource addressed by the request path does not exist. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description An upstream service the operation had to call synchronously was unreachable or returned an error. The message carries that service's own status when it returned one. */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    get_org_keeper_sync_runs: {
         parameters: {
             query?: {
                 /** @description Opaque pagination cursor from a previous response's ``Link`` header. */
@@ -4859,7 +7085,25 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["docverse__handlers__orgs__keeper_sync_models__KeeperSyncRun"][];
+                    "application/json": components["schemas"]["KeeperSyncRun"][];
+                };
+            };
+            /** @description The caller lacks the role required for this operation. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description A resource addressed by the request path does not exist. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorModel"];
                 };
             };
             /** @description Validation Error */
@@ -4873,7 +7117,7 @@ export interface operations {
             };
         };
     };
-    post_org_keeper_sync_run_docverse_api_orgs__org__keeper_sync_runs_post: {
+    post_org_keeper_sync_run: {
         parameters: {
             query?: never;
             header?: never;
@@ -4894,6 +7138,24 @@ export interface operations {
                     "application/json": components["schemas"]["KeeperSyncRunCreated"];
                 };
             };
+            /** @description The caller lacks the role required for this operation. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description A resource addressed by the request path does not exist. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorModel"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -4905,13 +7167,15 @@ export interface operations {
             };
         };
     };
-    get_org_keeper_sync_projects_docverse_api_orgs__org__keeper_sync_projects_get: {
+    get_org_keeper_sync_projects: {
         parameters: {
             query?: {
                 /** @description Opaque pagination cursor from a previous response's ``Link`` header. */
                 cursor?: string | null;
                 /** @description Maximum number of results per page. */
                 limit?: number;
+                /** @description Keep only the projects inside (``true``) or outside (``false``) the organization's keeper-sync scope. Omitted, the listing returns every project with a state row, in scope or not, each carrying its own ``in_scope`` flag; ``in_scope=false`` is how you find a project a stale exclude has quietly stopped syncing. Scope is a regular-expression rule rather than a SQL predicate, so this filter is applied to each page *after* its rows are read: a filtered page can carry fewer than ``limit`` entries — even none — while the ``Link`` header still offers a ``next`` cursor, and ``X-Total-Count`` stays the unfiltered row count. Follow ``next`` until it is gone rather than stopping at the first short page. */
+                in_scope?: boolean | null;
             };
             header?: never;
             path: {
@@ -4931,6 +7195,24 @@ export interface operations {
                     "application/json": components["schemas"]["KeeperSyncProjectStatus"][];
                 };
             };
+            /** @description The caller lacks the role required for this operation. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description A resource addressed by the request path does not exist. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorModel"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -4942,7 +7224,7 @@ export interface operations {
             };
         };
     };
-    get_org_keeper_sync_project_status_docverse_api_orgs__org__keeper_sync_projects__ltd_slug__get: {
+    get_org_keeper_sync_project_status: {
         parameters: {
             query?: {
                 /** @description When true, the response includes a live-LTD edition reconciliation diff (``missing_in_docverse`` and ``missing_in_ltd``). Default false to keep the endpoint cheap for routine polling. */
@@ -4952,7 +7234,7 @@ export interface operations {
             path: {
                 /** @description Organization slug. */
                 org: string;
-                /** @description LTD project slug to inspect. */
+                /** @description LTD Keeper product slug: lowercase letters, digits and hyphens, starting with a letter and ending with a letter or digit, at most 255 characters. */
                 ltd_slug: string;
             };
             cookie?: never;
@@ -4968,6 +7250,24 @@ export interface operations {
                     "application/json": components["schemas"]["KeeperSyncProjectStatus"];
                 };
             };
+            /** @description The caller lacks the role required for this operation. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description A resource addressed by the request path does not exist. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorModel"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -4979,7 +7279,7 @@ export interface operations {
             };
         };
     };
-    get_org_keeper_sync_project_editions_docverse_api_orgs__org__keeper_sync_projects__ltd_slug__editions_get: {
+    get_org_keeper_sync_project_editions: {
         parameters: {
             query?: {
                 /** @description Opaque pagination cursor from a previous response's ``Link`` header. */
@@ -4991,7 +7291,7 @@ export interface operations {
             path: {
                 /** @description Organization slug. */
                 org: string;
-                /** @description LTD project slug to list editions for. */
+                /** @description LTD Keeper product slug: lowercase letters, digits and hyphens, starting with a letter and ending with a letter or digit, at most 255 characters. */
                 ltd_slug: string;
             };
             cookie?: never;
@@ -5004,7 +7304,25 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["docverse__handlers__orgs__keeper_sync_models__KeeperSyncEditionStatus"][];
+                    "application/json": components["schemas"]["KeeperSyncEditionStatus"][];
+                };
+            };
+            /** @description The caller lacks the role required for this operation. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description A resource addressed by the request path does not exist. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorModel"];
                 };
             };
             /** @description Validation Error */
@@ -5018,14 +7336,14 @@ export interface operations {
             };
         };
     };
-    post_org_keeper_sync_project_refresh_docverse_api_orgs__org__keeper_sync_projects__ltd_slug__refresh_post: {
+    post_org_keeper_sync_project_refresh: {
         parameters: {
             query?: never;
             header?: never;
             path: {
                 /** @description Organization slug. */
                 org: string;
-                /** @description LTD project slug to refresh. */
+                /** @description LTD Keeper product slug: lowercase letters, digits and hyphens, starting with a letter and ending with a letter or digit, at most 255 characters. */
                 ltd_slug: string;
             };
             cookie?: never;
@@ -5041,6 +7359,24 @@ export interface operations {
                     "application/json": components["schemas"]["KeeperSyncProjectRefreshAccepted"];
                 };
             };
+            /** @description The caller lacks the role required for this operation. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description A resource addressed by the request path does not exist. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorModel"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -5052,7 +7388,7 @@ export interface operations {
             };
         };
     };
-    get_org_keeper_sync_run_docverse_api_orgs__org__keeper_sync_runs__run__get: {
+    get_org_keeper_sync_run: {
         parameters: {
             query?: never;
             header?: never;
@@ -5072,7 +7408,25 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["docverse__handlers__orgs__keeper_sync_models__KeeperSyncRun"];
+                    "application/json": components["schemas"]["KeeperSyncRun"];
+                };
+            };
+            /** @description The caller lacks the role required for this operation. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description A resource addressed by the request path does not exist. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorModel"];
                 };
             };
             /** @description Validation Error */
@@ -5086,7 +7440,7 @@ export interface operations {
             };
         };
     };
-    get_org_keeper_sync_tombstones_docverse_api_orgs__org__keeper_sync_tombstones_get: {
+    get_org_keeper_sync_tombstones: {
         parameters: {
             query?: {
                 /** @description Opaque pagination cursor from a previous response's ``Link`` header. */
@@ -5116,6 +7470,24 @@ export interface operations {
                     "application/json": components["schemas"]["KeeperSyncTombstone"][];
                 };
             };
+            /** @description The caller lacks the role required for this operation. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description A resource addressed by the request path does not exist. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorModel"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -5127,7 +7499,7 @@ export interface operations {
             };
         };
     };
-    delete_org_keeper_sync_tombstone_docverse_api_orgs__org__keeper_sync_tombstones__tombstone__delete: {
+    delete_org_keeper_sync_tombstone: {
         parameters: {
             query?: never;
             header?: never;
@@ -5148,6 +7520,24 @@ export interface operations {
                 };
                 content?: never;
             };
+            /** @description The caller lacks the role required for this operation. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description A resource addressed by the request path does not exist. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorModel"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -5159,7 +7549,7 @@ export interface operations {
             };
         };
     };
-    get_org_jobs_docverse_api_orgs__org__jobs_get: {
+    get_org_jobs: {
         parameters: {
             query?: {
                 /** @description Opaque pagination cursor from a previous response's ``Link`` header. */
@@ -5193,6 +7583,24 @@ export interface operations {
                     "application/json": components["schemas"]["QueueJob"][];
                 };
             };
+            /** @description The caller lacks the role required for this operation. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description A resource addressed by the request path does not exist. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorModel"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -5204,7 +7612,7 @@ export interface operations {
             };
         };
     };
-    get_org_job_docverse_api_orgs__org__jobs__job__get: {
+    get_org_job: {
         parameters: {
             query?: never;
             header?: never;
@@ -5225,6 +7633,24 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["QueueJob"];
+                };
+            };
+            /** @description The caller lacks the role required for this operation. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description A resource addressed by the request path does not exist. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorModel"];
                 };
             };
             /** @description Validation Error */
