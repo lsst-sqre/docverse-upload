@@ -54,7 +54,7 @@ jobs:
   # create → upload → patch → poll → publish flow (plus the PR comment) that
   # the msw-mocked unit tests cannot.
   #
-  # Credentials: DOCVERSE_DEV_CI is a Gafaelfawr token for the
+  # Credentials: DOCVERSE_DEV_TOKEN is a Gafaelfawr token for the
   # `bot-docverse-upload-action-ci` service user, which holds the `uploader`
   # role in the `jsc-test-20260807` org on roundtable-dev. It is provisioned
   # as both an Actions secret and a Dependabot secret so Dependabot PRs get
@@ -97,7 +97,7 @@ jobs:
           org: jsc-test-20260807
           project: docverse-upload-ci
           dir: site
-          token: ${{ secrets.DOCVERSE_DEV_CI }}
+          token: ${{ secrets.DOCVERSE_DEV_TOKEN }}
           base-url: https://roundtable-dev.lsst.cloud/docverse/api
           github-token: ${{ github.token }}
 

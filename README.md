@@ -160,7 +160,7 @@ pnpm build            # bundle to dist/ via esbuild (scripts/build.mjs)
 
 The repository commits both `generated/api-types.ts` and the bundled `dist/`. CI rebuilds them and runs `git diff --exit-code` to fail PRs that haven't been updated.
 
-CI also runs an end-to-end smoke test (`upload-smoke-test` in `ci.yml`): it executes the action from the checkout's committed `dist/` against the roundtable-dev Docverse server, uploading a small generated site to the `docverse-upload-ci` project in the `jsc-test-20260807` org, then asserts the outputs and fetches the published site. It authenticates with the `DOCVERSE_DEV_CI` secret, a token for the `bot-docverse-upload-action-ci` service user (an `uploader` in that org). The secret exists as both an Actions and a Dependabot secret; fork PRs skip the job because they cannot read secrets.
+CI also runs an end-to-end smoke test (`upload-smoke-test` in `ci.yml`): it executes the action from the checkout's committed `dist/` against the roundtable-dev Docverse server, uploading a small generated site to the `docverse-upload-ci` project in the `jsc-test-20260807` org, then asserts the outputs and fetches the published site. It authenticates with the `DOCVERSE_DEV_TOKEN` secret, a token for the `bot-docverse-upload-action-ci` service user (an `uploader` in that org). The secret exists as both an Actions and a Dependabot secret; fork PRs skip the job because they cannot read secrets.
 
 ### Updating the OpenAPI spec
 
