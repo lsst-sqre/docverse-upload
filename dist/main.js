@@ -4006,7 +4006,7 @@ var require_webidl = __commonJS({
 var require_util2 = __commonJS({
   "node_modules/.pnpm/undici@6.26.0/node_modules/undici/lib/web/fetch/util.js"(exports, module) {
     "use strict";
-    var { Transform: Transform2 } = __require("node:stream");
+    var { Transform } = __require("node:stream");
     var zlib = __require("node:zlib");
     var { redirectStatusSet, referrerPolicySet: referrerPolicyTokens, badPortsSet } = require_constants3();
     var { getGlobalOrigin } = require_global();
@@ -4694,7 +4694,7 @@ var require_util2 = __commonJS({
       contentRange += isomorphicEncode(`${fullLength}`);
       return contentRange;
     }
-    var InflateStream = class extends Transform2 {
+    var InflateStream = class extends Transform {
       #zlibOptions;
       /** @param {zlib.ZlibOptions} [zlibOptions] */
       constructor(zlibOptions) {
@@ -11020,13 +11020,13 @@ var require_pluralizer = __commonJS({
 var require_pending_interceptors_formatter = __commonJS({
   "node_modules/.pnpm/undici@6.26.0/node_modules/undici/lib/mock/pending-interceptors-formatter.js"(exports, module) {
     "use strict";
-    var { Transform: Transform2 } = __require("node:stream");
+    var { Transform } = __require("node:stream");
     var { Console } = __require("node:console");
     var PERSISTENT = process.versions.icu ? "\u2705" : "Y ";
     var NOT_PERSISTENT = process.versions.icu ? "\u274C" : "N ";
     module.exports = class PendingInterceptorsFormatter {
       constructor({ disableColors } = {}) {
-        this.transform = new Transform2({
+        this.transform = new Transform({
           transform(chunk, _enc, cb) {
             cb(null, chunk);
           }
@@ -18013,14 +18013,14 @@ var require_util8 = __commonJS({
 var require_eventsource_stream = __commonJS({
   "node_modules/.pnpm/undici@6.26.0/node_modules/undici/lib/web/eventsource/eventsource-stream.js"(exports, module) {
     "use strict";
-    var { Transform: Transform2 } = __require("node:stream");
+    var { Transform } = __require("node:stream");
     var { isASCIINumber, isValidLastEventId } = require_util8();
     var BOM = [239, 187, 191];
     var LF = 10;
     var CR = 13;
     var COLON = 58;
     var SPACE = 32;
-    var EventSourceStream = class extends Transform2 {
+    var EventSourceStream = class extends Transform {
       /**
        * @type {eventSourceSettings}
        */
@@ -24364,18 +24364,26 @@ function formatUploadError(failure) {
   const excerpt = failure.rawBody.slice(0, 400);
   return `Tarball upload to presigned URL failed (HTTP ${failure.status} ${failure.statusText}): ${excerpt}`;
 }
+function isApiErrorBody(body) {
+  return typeof body === "object" && body !== null && "detail" in body && Array.isArray(body.detail);
+}
+function formatDetailEntry(entry) {
+  if (typeof entry !== "object" || entry === null) {
+    return JSON.stringify(entry);
+  }
+  const { loc, msg } = entry;
+  const location = Array.isArray(loc) ? loc.join(".") : "";
+  const message = typeof msg === "string" ? msg : JSON.stringify(entry);
+  return location ? `${location}: ${message}` : message;
+}
 function extractDetail(failure) {
   const body = failure.body;
+  if (isApiErrorBody(body)) {
+    return body.detail.map(formatDetailEntry).join("; ");
+  }
   if (body && typeof body === "object" && "detail" in body) {
     const detail = body.detail;
     if (typeof detail === "string") return detail;
-    if (Array.isArray(detail)) {
-      return detail.map((entry) => {
-        const loc = Array.isArray(entry.loc) ? entry.loc.join(".") : "";
-        const msg = typeof entry.msg === "string" ? entry.msg : JSON.stringify(entry);
-        return loc ? `${loc}: ${msg}` : msg;
-      }).join("; ");
-    }
     return JSON.stringify(detail);
   }
   return failure.rawBody.slice(0, 400) || "<empty body>";
@@ -24412,10 +24420,15 @@ var DocverseClient = class {
   fetchImpl;
   client;
   errorContext;
+  /**
+   * Create a build resource. The request deliberately omits the deprecated
+   * `content_hash` field: Docverse computes the build's content identity
+   * server-side while processing the upload, and the field is slated for
+   * removal.
+   */
   async createBuild(opts) {
     const body = {
-      git_ref: opts.gitRef,
-      content_hash: opts.contentHash
+      git_ref: opts.gitRef
     };
     if (opts.alternateName !== null) {
       body.alternate_name = opts.alternateName;
@@ -24879,8 +24892,8 @@ function validateDir(dir) {
   if (!existsSync3(dir)) {
     throw new InputError(`Input \`dir\` does not exist: ${dir}`);
   }
-  const stat3 = statSync(dir);
-  if (!stat3.isDirectory()) {
+  const stat4 = statSync(dir);
+  if (!stat4.isDirectory()) {
     throw new InputError(`Input \`dir\` is not a directory: ${dir}`);
   }
 }
@@ -24948,12 +24961,10 @@ function defaultSleep(ms2) {
 }
 
 // src/tarball.ts
-import { createHash } from "node:crypto";
 import { createWriteStream } from "node:fs";
-import { mkdtemp, readdir as readdir2, rm as rm2 } from "node:fs/promises";
+import { mkdtemp, readdir as readdir2, rm as rm2, stat as stat3 } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { Transform } from "node:stream";
 import { pipeline } from "node:stream/promises";
 
 // node_modules/.pnpm/tar@7.5.22/node_modules/tar/dist/esm/index.min.js
@@ -27936,9 +27947,6 @@ async function createTarball(sourceDir) {
   const tmpDir = await mkdtemp(join(tmpdir(), "docverse-upload-"));
   const tarPath = join(tmpDir, "build.tar.gz");
   const cleanup = () => safeRm(tmpDir);
-  const hasher = createHash("sha256");
-  const fileStream = createWriteStream(tarPath);
-  const hashingStream = new HashingPassthrough(hasher);
   const tarStream = Qn(
     {
       gzip: true,
@@ -27948,16 +27956,13 @@ async function createTarball(sourceDir) {
     entries
   );
   try {
-    await pipeline(tarStream, hashingStream, fileStream);
+    await pipeline(tarStream, createWriteStream(tarPath));
   } catch (err) {
     await cleanup();
     throw err;
   }
-  return {
-    path: tarPath,
-    contentHash: `sha256:${hasher.digest("hex")}`,
-    cleanup
-  };
+  const { size } = await stat3(tarPath);
+  return { path: tarPath, sizeBytes: size, cleanup };
 }
 async function safeRm(path) {
   try {
@@ -27965,17 +27970,6 @@ async function safeRm(path) {
   } catch {
   }
 }
-var HashingPassthrough = class extends Transform {
-  constructor(hasher) {
-    super();
-    this.hasher = hasher;
-  }
-  hasher;
-  _transform(chunk, _enc, cb) {
-    this.hasher.update(chunk);
-    cb(null, chunk);
-  }
-};
 
 // src/index.ts
 async function run() {
@@ -27985,14 +27979,13 @@ async function run() {
     info(`Uploading docs for ${inputs.org}/${inputs.project} on ref ${inputs.gitRef}`);
     const tarball = await createTarball(inputs.dir);
     cleanup = tarball.cleanup;
-    info(`Built tarball at ${tarball.path} (${tarball.contentHash})`);
+    info(`Built tarball at ${tarball.path} (${tarball.sizeBytes} bytes)`);
     const annotations = detectGithubActionsAnnotations();
     const client = new DocverseClient(inputs.baseUrl, inputs.token, inputs.org, inputs.project);
     const build = await client.createBuild({
       org: inputs.org,
       project: inputs.project,
       gitRef: inputs.gitRef,
-      contentHash: tarball.contentHash,
       alternateName: inputs.alternateName,
       annotations
     });

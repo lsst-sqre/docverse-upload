@@ -28,7 +28,7 @@ export async function run(): Promise<void> {
 
     const tarball = await createTarball(inputs.dir);
     cleanup = tarball.cleanup;
-    core.info(`Built tarball at ${tarball.path} (${tarball.contentHash})`);
+    core.info(`Built tarball at ${tarball.path} (${tarball.sizeBytes} bytes)`);
 
     const annotations = detectGithubActionsAnnotations();
     const client = new DocverseClient(inputs.baseUrl, inputs.token, inputs.org, inputs.project);
@@ -37,7 +37,6 @@ export async function run(): Promise<void> {
       org: inputs.org,
       project: inputs.project,
       gitRef: inputs.gitRef,
-      contentHash: tarball.contentHash,
       alternateName: inputs.alternateName,
       annotations,
     });

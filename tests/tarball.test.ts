@@ -1,7 +1,7 @@
-import { createHash } from 'node:crypto';
-import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { list as listTar } from 'tar';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createTarball } from '../src/tarball.js';
 
@@ -16,17 +16,17 @@ afterEach(async () => {
 });
 
 describe('createTarball', () => {
-  it('produces a tar.gz whose SHA-256 matches an independent hash', async () => {
+  it('produces a gzipped tarball of the directory contents', async () => {
     await mkdir(join(srcDir, 'sub'), { recursive: true });
     await writeFile(join(srcDir, 'index.html'), 'hello\n');
     await writeFile(join(srcDir, 'sub', 'page.html'), 'world\n');
 
     const result = await createTarball(srcDir);
     try {
-      const file = await readFile(result.path);
-      const independent = `sha256:${createHash('sha256').update(file).digest('hex')}`;
-      expect(result.contentHash).toBe(independent);
-      expect(result.contentHash).toMatch(/^sha256:[a-f0-9]{64}$/);
+      expect(result.sizeBytes).toBeGreaterThan(0);
+      const entries: string[] = [];
+      await listTar({ file: result.path, onReadEntry: (entry) => entries.push(entry.path) });
+      expect(entries.sort()).toEqual(['index.html', 'sub/', 'sub/page.html']);
     } finally {
       await result.cleanup();
     }

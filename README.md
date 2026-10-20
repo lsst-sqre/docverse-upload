@@ -24,8 +24,8 @@ The action is a **native JavaScript GitHub Action**: it runs directly on the run
 
 The action performs the full upload workflow:
 
-1. Tars the directory and streams it through SHA-256.
-2. `POST /orgs/{org}/projects/{project}/builds` to create a build resource.
+1. Tars the directory.
+2. `POST /orgs/{org}/projects/{project}/builds` to create a build resource. Docverse computes the build's content identity server-side, so no client-side digest is sent.
 3. `PUT` the tarball to the presigned URL returned by the server.
 4. `PATCH` the build with `status: uploaded` to start processing.
 5. Polls the queue job until it reaches a terminal state.
@@ -162,9 +162,14 @@ The repository commits both `generated/api-types.ts` and the bundled `dist/`. CI
 
 ### Updating the OpenAPI spec
 
-1. Drop a fresh upstream spec into the repo root as `docverse-openapi.json` (or any path).
+1. Fetch the spec from the deployed server. The endpoint requires a Gafaelfawr bearer token, so use an HTTP client with a stored token, e.g. with [HTTPie](https://httpie.io) sessions:
+
+   ```sh
+   http -A store --body get https://roundtable.lsst.cloud/docverse/api/openapi.json > docverse-openapi.json
+   ```
+
 2. Run `pnpm prep-openapi` to rewrite the paths (strip the `/docverse/api` prefix) and write `openapi.json`.
-3. Run `pnpm generate-types && pnpm build`.
+3. Run `pnpm generate-types && pnpm typecheck && pnpm build`, and review the `generated/api-types.ts` diff for schema changes the client code must adopt.
 4. Commit `openapi.json`, `generated/api-types.ts`, and the rebuilt `dist/` together so the diff is reviewable.
 
 ### Releasing

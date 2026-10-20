@@ -157,7 +157,6 @@ describe('upload flow', () => {
       org: 'rubin',
       project: 'docs',
       gitRef: 'main',
-      contentHash: 'sha256:0'.padEnd(7 + 64, '0'),
       alternateName: null,
       annotations: null,
     });
@@ -310,7 +309,6 @@ describe('upload flow', () => {
         org: 'rubin',
         project: 'docs',
         gitRef: 'main',
-        contentHash: 'sha256:0'.padEnd(7 + 64, '0'),
         alternateName: null,
         annotations: null,
       }),
@@ -331,7 +329,6 @@ describe('upload flow', () => {
         org: 'rubin',
         project: 'docs',
         gitRef: 'main',
-        contentHash: 'sha256:0'.padEnd(7 + 64, '0'),
         alternateName: null,
         annotations: null,
       }),
@@ -347,9 +344,9 @@ describe('upload flow', () => {
           {
             detail: [
               {
-                loc: ['body', 'content_hash'],
-                msg: 'pattern mismatch',
-                type: 'string_pattern_mismatch',
+                loc: ['body', 'git_ref'],
+                msg: 'String should have at least 1 character',
+                type: 'string_too_short',
               },
             ],
           },
@@ -362,13 +359,12 @@ describe('upload flow', () => {
       client.createBuild({
         org: 'rubin',
         project: 'docs',
-        gitRef: 'main',
-        contentHash: 'sha256:bad',
+        gitRef: '',
         alternateName: null,
         annotations: null,
       }),
     ).rejects.toMatchObject({
-      message: expect.stringContaining('body.content_hash: pattern mismatch'),
+      message: expect.stringContaining('body.git_ref: String should have at least 1 character'),
     });
   });
 
@@ -389,6 +385,43 @@ describe('upload flow', () => {
     ).rejects.toBeInstanceOf(ApiError);
   });
 
+  it('maps a 404 with the documented ErrorModel body to an org/project message', async () => {
+    server.use(
+      http.get(`${BASE_URL}/orgs/:org/jobs/:job`, () =>
+        HttpResponse.json(
+          { detail: [{ loc: ['path', 'job'], msg: 'Job not found', type: 'not_found' }] },
+          { status: 404 },
+        ),
+      ),
+    );
+    const client = new DocverseClient(BASE_URL, 'gt', 'rubin', 'docs');
+    const promise = client.getQueueJobById('missing');
+    await expect(promise).rejects.toBeInstanceOf(ApiError);
+    await expect(promise).rejects.toMatchObject({
+      message: expect.stringContaining('HTTP 404'),
+      failure: { status: 404, body: { detail: [{ msg: 'Job not found' }] } },
+    });
+  });
+
+  it('omits the deprecated content_hash from the create-build request', async () => {
+    let received: Record<string, unknown> | null = null;
+    server.use(
+      http.post(`${BASE_URL}/orgs/:org/projects/:project/builds`, async ({ request }) => {
+        received = (await request.json()) as Record<string, unknown>;
+        return HttpResponse.json(buildResource(), { status: 201 });
+      }),
+    );
+    const client = new DocverseClient(BASE_URL, 'gt', 'rubin', 'docs');
+    await client.createBuild({
+      org: 'rubin',
+      project: 'docs',
+      gitRef: 'main',
+      alternateName: null,
+      annotations: null,
+    });
+    expect(received).toEqual({ git_ref: 'main' });
+  });
+
   it('passes annotations through to the create-build request', async () => {
     type CreateBody = { annotations?: Record<string, string>; alternate_name?: string };
     const received: { body: CreateBody | null } = { body: null };
@@ -403,7 +436,6 @@ describe('upload flow', () => {
       org: 'rubin',
       project: 'docs',
       gitRef: 'main',
-      contentHash: 'sha256:0'.padEnd(7 + 64, '0'),
       alternateName: 'usdf-dev',
       annotations: { commit_sha: 'cafe', ci_platform: 'github-actions' },
     });

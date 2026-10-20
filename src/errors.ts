@@ -1,3 +1,20 @@
+import type { components } from '#generated/api-types';
+
+/**
+ * Error body shapes documented in the Docverse OpenAPI spec: safir's
+ * `ErrorModel` for 403/404/409 and FastAPI's `HTTPValidationError` for 422.
+ * Both carry a `detail` array; FastAPI may also emit a plain-string `detail`
+ * (e.g. from `HTTPException`), which the spec does not document but the
+ * server can still produce.
+ */
+export type ApiErrorBody =
+  | components['schemas']['ErrorModel']
+  | components['schemas']['HTTPValidationError'];
+
+type ErrorDetailEntry =
+  | components['schemas']['ErrorDetail']
+  | components['schemas']['ValidationError'];
+
 export interface ApiErrorContext {
   org: string;
   project: string;
@@ -54,26 +71,38 @@ export function formatUploadError(failure: HttpFailure): string {
   return `Tarball upload to presigned URL failed (HTTP ${failure.status} ${failure.statusText}): ${excerpt}`;
 }
 
-interface DetailEntry {
-  msg?: unknown;
-  loc?: unknown;
-  type?: unknown;
+/**
+ * Whether an HTTP failure body has the documented `{ detail: [...] }` shape.
+ * Structural only: the entries themselves are still read defensively because
+ * the body came off the wire.
+ */
+export function isApiErrorBody(body: unknown): body is { detail: ErrorDetailEntry[] } {
+  return (
+    typeof body === 'object' &&
+    body !== null &&
+    'detail' in body &&
+    Array.isArray((body as { detail: unknown }).detail)
+  );
+}
+
+function formatDetailEntry(entry: unknown): string {
+  if (typeof entry !== 'object' || entry === null) {
+    return JSON.stringify(entry);
+  }
+  const { loc, msg } = entry as Partial<ErrorDetailEntry>;
+  const location = Array.isArray(loc) ? loc.join('.') : '';
+  const message = typeof msg === 'string' ? msg : JSON.stringify(entry);
+  return location ? `${location}: ${message}` : message;
 }
 
 function extractDetail(failure: HttpFailure): string {
   const body = failure.body;
+  if (isApiErrorBody(body)) {
+    return body.detail.map(formatDetailEntry).join('; ');
+  }
   if (body && typeof body === 'object' && 'detail' in body) {
     const detail = (body as { detail: unknown }).detail;
     if (typeof detail === 'string') return detail;
-    if (Array.isArray(detail)) {
-      return detail
-        .map((entry: DetailEntry) => {
-          const loc = Array.isArray(entry.loc) ? entry.loc.join('.') : '';
-          const msg = typeof entry.msg === 'string' ? entry.msg : JSON.stringify(entry);
-          return loc ? `${loc}: ${msg}` : msg;
-        })
-        .join('; ');
-    }
     return JSON.stringify(detail);
   }
   return failure.rawBody.slice(0, 400) || '<empty body>';
