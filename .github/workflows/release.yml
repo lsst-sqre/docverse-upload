@@ -23,8 +23,6 @@ jobs:
           node-version: '24'
           cache: pnpm
 
-      - uses: astral-sh/setup-uv@v10.2.0
-
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
@@ -37,23 +35,41 @@ jobs:
             exit 1
           fi
 
-      - name: Update floating major-version tag
-        uses: nowactions/update-majorver@v1
-
-      - name: Collect changelog notes
+      # The changelog entry is collected locally with `scriv collect` and
+      # committed before tagging (see "Releasing" in README.md). This step
+      # only verifies that happened and extracts the entry for the release.
+      - name: Verify and extract changelog notes
         id: changelog
         run: |
           TAG="${GITHUB_REF_NAME}"
           VERSION="${TAG#v}"
-          uvx scriv collect --version "$VERSION" --keep
+
+          fragments="$(find changelog.d -maxdepth 1 -type f ! -name '_*' ! -name 'scriv.ini')"
+          if [ -n "$fragments" ]; then
+            echo "::error::Uncollected changelog fragments remain in changelog.d/. Run 'uvx scriv collect --version $VERSION' and commit before tagging."
+            echo "$fragments"
+            exit 1
+          fi
+
+          if ! grep -Eq "^## ${VERSION}( |\$)" CHANGELOG.md; then
+            echo "::error::CHANGELOG.md has no '## ${VERSION}' section. Run 'uvx scriv collect --version $VERSION' and commit before tagging."
+            exit 1
+          fi
+
           NOTES_FILE="$(mktemp)"
-          # `scriv collect` writes into CHANGELOG.md; extract the new section.
           awk -v ver="$VERSION" '
             $0 ~ "^## "ver"( |$)" {flag=1; next}
             flag && /^## / {exit}
             flag {print}
           ' CHANGELOG.md > "$NOTES_FILE"
+          if ! grep -q '[^[:space:]]' "$NOTES_FILE"; then
+            echo "::error::The '## ${VERSION}' section of CHANGELOG.md is empty."
+            exit 1
+          fi
           echo "notes_file=$NOTES_FILE" >> "$GITHUB_OUTPUT"
+
+      - name: Update floating major-version tag
+        uses: nowactions/update-majorver@v1
 
       - name: Create GitHub release
         env:

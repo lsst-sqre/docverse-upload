@@ -184,9 +184,21 @@ CI also runs an end-to-end smoke test (`upload-smoke-test` in `ci.yml`): it exec
 
 ### Releasing
 
-1. Add a `changelog.d/<topic>.md` fragment summarizing the change.
-2. Merge to `main`.
-3. Tag `vX.Y.Z`. The `Release` workflow rebuilds, runs `uvx scriv collect`, updates the floating `vX` tag via `nowactions/update-majorver`, and creates a GitHub Release with the collected notes.
+Changelog fragments accumulate in `changelog.d/` as work merges, and are collected into `CHANGELOG.md` with [scriv](https://scriv.readthedocs.io) as a prerequisite of each release. The scriv configuration lives in `changelog.d/scriv.ini`.
+
+1. Each PR adds a `changelog.d/<date>_<topic>.md` fragment summarizing its change (`uvx scriv create` scaffolds one from the template).
+2. When ready to release, on a branch run:
+
+   ```sh
+   uvx scriv collect --version X.Y.Z
+   ```
+
+   This moves the fragments into a new `## X.Y.Z (date)` section at the top of `CHANGELOG.md` and deletes them. Review and edit the section as needed, then commit and merge to `main`.
+3. Tag `vX.Y.Z` on `main` and push the tag. The `Release` workflow:
+   - rebuilds and verifies that `generated/` and `dist/` match `src/`;
+   - verifies that no uncollected fragments remain in `changelog.d/` and that `CHANGELOG.md` has a non-empty `## X.Y.Z` section, failing the release otherwise;
+   - updates the floating `vX` tag via `nowactions/update-majorver`;
+   - creates a GitHub Release using that section as the notes.
 
 ### CI GitHub App (Rubin Squarebot)
 
