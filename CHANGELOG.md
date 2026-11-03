@@ -2,6 +2,17 @@
 
 <!-- scriv-insert-here -->
 
+<a id='changelog-1.1.0'></a>
+## 1.1.0 (2026-11-03)
+
+### New features
+
+- Build caches and VCS metadata are never uploaded. The tarball now omits any path whose name is one of `.doctrees`, `.buildinfo`, `.git`, `__pycache__`, `.pytest_cache`, `.ipynb_checkpoints`, `.DS_Store`, `Thumbs.db`, `.hg`, or `.svn`, at any depth, and the step log reports how many entries were excluded. The list mirrors the Docverse Python client's `EXCLUDED_PATH_NAMES` (lsst-sqre/docverse#853). Docverse 1.0.0b14 and later also strip these on ingest; filtering in the action keeps the bytes from leaving the runner. A directory that contains nothing but excluded paths is refused as an empty upload.
+
+### Other changes
+
+- The `Release` workflow no longer runs `scriv collect` itself. Collecting the changelog entry into `CHANGELOG.md` is now a documented prerequisite of tagging a release, and the workflow fails if uncollected fragments remain in `changelog.d/` or `CHANGELOG.md` has no non-empty section for the tagged version. The floating `vX` tag is only updated after these checks pass.
+
 <a id='changelog-1.0.0'></a>
 ## 1.0.0 (2026-10-20)
 
