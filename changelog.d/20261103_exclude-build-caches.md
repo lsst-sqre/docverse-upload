@@ -1,0 +1,3 @@
+### New features
+
+- Build caches and VCS metadata are never uploaded. The tarball now omits any path whose name is one of `.doctrees`, `.buildinfo`, `.git`, `__pycache__`, `.pytest_cache`, `.ipynb_checkpoints`, `.DS_Store`, `Thumbs.db`, `.hg`, or `.svn`, at any depth, and the step log reports how many entries were excluded. The list mirrors the Docverse Python client's `EXCLUDED_PATH_NAMES` (lsst-sqre/docverse#853). Docverse 1.0.0b14 and later also strip these on ingest; filtering in the action keeps the bytes from leaving the runner. A directory that contains nothing but excluded paths is refused as an empty upload.

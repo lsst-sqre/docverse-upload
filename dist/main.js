@@ -27959,6 +27959,25 @@ var To = (s3) => {
   s3.mtimeCache || (s3.mtimeCache = /* @__PURE__ */ new Map()), s3.filter = t ? (e, i) => t(e, i) && !((s3.mtimeCache?.get(e) ?? i.mtime ?? 0) > (i.mtime ?? 0)) : (e, i) => !((s3.mtimeCache?.get(e) ?? i.mtime ?? 0) > (i.mtime ?? 0));
 };
 
+// src/excluded-paths.ts
+import { sep as pathSep } from "node:path";
+var EXCLUDED_PATH_NAMES = /* @__PURE__ */ new Set([
+  ".doctrees",
+  ".buildinfo",
+  ".git",
+  "__pycache__",
+  ".pytest_cache",
+  ".ipynb_checkpoints",
+  ".DS_Store",
+  "Thumbs.db",
+  ".hg",
+  ".svn"
+]);
+function isExcludedPath(relativePath) {
+  const segments = relativePath.split(pathSep === "/" ? "/" : /[\\/]/);
+  return segments.some((segment) => EXCLUDED_PATH_NAMES.has(segment));
+}
+
 // src/tarball.ts
 async function createTarball(sourceDir) {
   const entries = await readdir2(sourceDir);
@@ -27967,16 +27986,30 @@ async function createTarball(sourceDir) {
       `Source directory is empty: ${sourceDir}. Refusing to upload an empty tarball.`
     );
   }
+  const topLevel = entries.filter((entry) => !isExcludedPath(entry));
+  if (topLevel.length === 0) {
+    throw new Error(
+      `Source directory contains only excluded build-cache paths: ${sourceDir}. Refusing to upload an empty tarball.`
+    );
+  }
   const tmpDir = await mkdtemp(join(tmpdir(), "docverse-upload-"));
   const tarPath = join(tmpDir, "build.tar.gz");
   const cleanup = () => safeRm(tmpDir);
+  let excludedCount = entries.length - topLevel.length;
   const tarStream = Qn(
     {
       gzip: true,
       cwd: sourceDir,
-      portable: true
+      portable: true,
+      filter: (path) => {
+        if (isExcludedPath(path)) {
+          excludedCount += 1;
+          return false;
+        }
+        return true;
+      }
     },
-    entries
+    topLevel
   );
   try {
     await pipeline(tarStream, createWriteStream(tarPath));
@@ -27985,7 +28018,7 @@ async function createTarball(sourceDir) {
     throw err;
   }
   const { size } = await stat3(tarPath);
-  return { path: tarPath, sizeBytes: size, cleanup };
+  return { path: tarPath, sizeBytes: size, excludedCount, cleanup };
 }
 async function safeRm(path) {
   try {
@@ -28002,6 +28035,9 @@ async function run() {
     info(`Uploading docs for ${inputs.org}/${inputs.project} on ref ${inputs.gitRef}`);
     const tarball = await createTarball(inputs.dir);
     cleanup = tarball.cleanup;
+    if (tarball.excludedCount > 0) {
+      info(`Excluded ${tarball.excludedCount} cache path(s) from the upload`);
+    }
     info(`Built tarball at ${tarball.path} (${tarball.sizeBytes} bytes)`);
     const annotations = detectGithubActionsAnnotations();
     const client = new DocverseClient(inputs.baseUrl, inputs.token, inputs.org, inputs.project);

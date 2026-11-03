@@ -31,6 +31,8 @@ The action performs the full upload workflow:
 5. Polls the queue job until it reaches a terminal state.
 6. Polls each `publish_edition` job until the edition is live (unless `wait-for-publish: false`).
 
+Build caches and VCS metadata are never uploaded: any file or directory named `.doctrees`, `.buildinfo`, `.git`, `__pycache__`, `.pytest_cache`, `.ipynb_checkpoints`, `.DS_Store`, `Thumbs.db`, `.hg`, or `.svn` is dropped from the tarball at any depth, and the step log reports how many entries were excluded. This mirrors the list the Docverse server itself strips on ingest, so a Sphinx `html/` directory can be uploaded as-is.
+
 ## Inputs
 
 | Input            | Required | Default                                            | Description |
