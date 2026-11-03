@@ -24987,7 +24987,7 @@ function defaultSleep(ms2) {
 import { createWriteStream } from "node:fs";
 import { mkdtemp, readdir as readdir2, rm as rm2, stat as stat3 } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import { pipeline } from "node:stream/promises";
 
 // node_modules/.pnpm/tar@7.5.22/node_modules/tar/dist/esm/index.min.js
@@ -27986,39 +27986,53 @@ async function createTarball(sourceDir) {
       `Source directory is empty: ${sourceDir}. Refusing to upload an empty tarball.`
     );
   }
-  const topLevel = entries.filter((entry) => !isExcludedPath(entry));
-  if (topLevel.length === 0) {
-    throw new Error(
-      `Source directory contains only excluded build-cache paths: ${sourceDir}. Refusing to upload an empty tarball.`
-    );
+  if (entries.every((entry) => isExcludedPath(entry))) {
+    throw onlyExcludedError(sourceDir);
   }
   const tmpDir = await mkdtemp(join(tmpdir(), "docverse-upload-"));
   const tarPath = join(tmpDir, "build.tar.gz");
   const cleanup = () => safeRm(tmpDir);
-  let excludedCount = entries.length - topLevel.length;
+  let excludedCount = 0;
+  let fileCount = 0;
   const tarStream = Qn(
     {
       gzip: true,
       cwd: sourceDir,
       portable: true,
-      filter: (path) => {
-        if (isExcludedPath(path)) {
+      // tar calls the filter for every top-level entry and, for each admitted
+      // directory, for its children — and never descends into a filtered
+      // directory. So every ancestor segment of `path` has already been
+      // admitted and only the last segment can newly match, which makes a
+      // basename check equivalent to `isExcludedPath` here.
+      filter: (path, entry) => {
+        if (EXCLUDED_PATH_NAMES.has(basename(path))) {
           excludedCount += 1;
           return false;
+        }
+        if (!("isDirectory" in entry && entry.isDirectory())) {
+          fileCount += 1;
         }
         return true;
       }
     },
-    topLevel
+    entries
   );
   try {
     await pipeline(tarStream, createWriteStream(tarPath));
+    if (fileCount === 0) {
+      throw onlyExcludedError(sourceDir);
+    }
   } catch (err) {
     await cleanup();
     throw err;
   }
   const { size } = await stat3(tarPath);
   return { path: tarPath, sizeBytes: size, excludedCount, cleanup };
+}
+function onlyExcludedError(sourceDir) {
+  return new Error(
+    `Source directory contains only excluded build-cache paths: ${sourceDir}. Refusing to upload an empty tarball.`
+  );
 }
 async function safeRm(path) {
   try {
@@ -28036,7 +28050,7 @@ async function run() {
     const tarball = await createTarball(inputs.dir);
     cleanup = tarball.cleanup;
     if (tarball.excludedCount > 0) {
-      info(`Excluded ${tarball.excludedCount} cache path(s) from the upload`);
+      info(`Excluded ${tarball.excludedCount} build-cache/VCS path(s) from the upload`);
     }
     info(`Built tarball at ${tarball.path} (${tarball.sizeBytes} bytes)`);
     const annotations = detectGithubActionsAnnotations();

@@ -30,7 +30,7 @@ export async function run(): Promise<void> {
     const tarball = await createTarball(inputs.dir);
     cleanup = tarball.cleanup;
     if (tarball.excludedCount > 0) {
-      core.info(`Excluded ${tarball.excludedCount} cache path(s) from the upload`);
+      core.info(`Excluded ${tarball.excludedCount} build-cache/VCS path(s) from the upload`);
     }
     core.info(`Built tarball at ${tarball.path} (${tarball.sizeBytes} bytes)`);
 

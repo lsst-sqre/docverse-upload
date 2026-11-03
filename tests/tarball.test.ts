@@ -1,6 +1,6 @@
 import { mkdir, mkdtemp, readdir, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { dirname, join } from 'node:path';
+import { join } from 'node:path';
 import { list as listTar } from 'tar';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createTarball } from '../src/tarball.js';
@@ -69,9 +69,23 @@ describe('createTarball', () => {
     await expect(createTarball(srcDir)).rejects.toThrow(/empty/);
     expect(await listTmpDirs()).toEqual(before);
   });
+
+  it('refuses a directory whose only files are nested under excluded paths', async () => {
+    await mkdir(join(srcDir, 'sub', '.doctrees'), { recursive: true });
+    await writeFile(join(srcDir, 'sub', '.doctrees', 'environment.pickle'), 'pickle\n');
+    await writeFile(join(srcDir, 'sub', '.buildinfo'), 'config: abc\n');
+
+    const before = await listTmpDirs();
+    await expect(createTarball(srcDir)).rejects.toThrow(/empty/);
+    expect(await listTmpDirs()).toEqual(before);
+  });
 });
 
+// Temp dirs created by createTarball: the `docverse-upload-` prefix followed by
+// mkdtemp's six random characters. The pattern is exact so that other test
+// files' temp dirs (e.g. `docverse-upload-test-XXXXXX` from inputs.test.ts,
+// running in a parallel worker) cannot make this list flap.
 async function listTmpDirs(): Promise<string[]> {
-  const names = await readdir(dirname(join(tmpdir(), 'x')));
-  return names.filter((name) => name.startsWith('docverse-upload-')).sort();
+  const names = await readdir(tmpdir());
+  return names.filter((name) => /^docverse-upload-[A-Za-z0-9]{6}$/.test(name)).sort();
 }
