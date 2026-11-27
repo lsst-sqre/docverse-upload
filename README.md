@@ -7,23 +7,32 @@ The action is a **native JavaScript GitHub Action**: it runs directly on the run
 ## Quick start
 
 ```yaml
-- uses: actions/checkout@v4
+jobs:
+  docs:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write # lets the action authenticate to Docverse
+    steps:
+      - uses: actions/checkout@v4
 
-- name: Build documentation
-  run: |
-    pip install -r docs/requirements.txt
-    sphinx-build -b html docs/ docs/_build/html
+      - name: Build documentation
+        run: |
+          pip install -r docs/requirements.txt
+          sphinx-build -b html docs/ docs/_build/html
 
-- uses: lsst-sqre/docverse-upload@v1
-  with:
-    org: rubin
-    project: my-docs
-    dir: docs/_build/html
-    token: ${{ secrets.DOCVERSE_TOKEN }}
+      - uses: lsst-sqre/docverse-upload@v2
+        with:
+          org: rubin
+          project: my-docs
+          dir: docs/_build/html
 ```
+
+No token or secret is passed: the action authenticates with GitHub Actions OIDC (see [Authentication](#authentication)). The repository must be registered with the environment's Gafaelfawr first.
 
 The action performs the full upload workflow:
 
+1. Exchanges the job's GitHub OIDC ID token for a short-lived Gafaelfawr token.
 1. Tars the directory.
 2. `POST /orgs/{org}/projects/{project}/builds` to create a build resource. Docverse computes the build's content identity server-side, so no client-side digest is sent.
 3. `PUT` the tarball to the presigned URL returned by the server.
@@ -40,8 +49,7 @@ Build caches and VCS metadata are never uploaded: any file or directory named `.
 | `org`            | yes      | —                                                  | Docverse organization slug. |
 | `project`        | yes      | —                                                  | Docverse project slug. |
 | `dir`            | yes      | —                                                  | Path to the built documentation directory. |
-| `token`          | yes      | —                                                  | Gafaelfawr bearer token, typically `${{ secrets.DOCVERSE_TOKEN }}`. |
-| `base-url`       | no       | `https://roundtable.lsst.cloud/docverse/api`       | Docverse API base URL. |
+| `base-url`       | no       | `https://roundtable.lsst.cloud/docverse/api`       | Docverse API base URL. Its origin is also the Gafaelfawr the action authenticates with. |
 | `git-ref`        | no       | `$GITHUB_HEAD_REF || $GITHUB_REF_NAME`             | Short branch/tag name sent as the build's `git_ref`. Correctly handles `pull_request` events. |
 | `alternate-name` | no       | —                                                  | Alternate deployment name for scoped editions. |
 | `wait`           | no       | `true`                                             | Wait for processing to complete. When `false`, the action returns right after PATCH. |
@@ -75,9 +83,33 @@ Slug ASC is the tiebreak at every level. In `editions-json`, `kind` is the serve
 
 ## Authentication
 
-The action authenticates to Docverse with a [Gafaelfawr](https://gafaelfawr.lsst.io) bearer token. The token must hold the `uploader` role on the target organization. Store it in a repo or org secret and pass it as the `token` input — typically `${{ secrets.DOCVERSE_TOKEN }}`.
+The action authenticates with [GitHub Actions OIDC](https://docs.github.com/en/actions/concepts/security/openid-connect), so no long-lived token is stored in the repository's secrets. On each run it:
 
-The token is sent only to Docverse. The presigned-URL PUT to cloud storage runs without an Authorization header so the token never reaches the cloud provider.
+1. requests an ID token from GitHub with the environment's base URL (the origin of `base-url`, e.g. `https://roundtable.lsst.cloud`) as its audience;
+2. exchanges it at Gafaelfawr's `POST /auth/api/v1/github/token` endpoint for a short-lived [Gafaelfawr](https://gafaelfawr.lsst.io) token with the `exec:docverse` scope;
+3. uses that token, which is masked in the job log, for the Docverse API calls.
+
+The design is described in [SQR-120](https://sqr-120.lsst.io).
+
+**Requirements**
+
+- The job must grant `id-token: write`. Grant it on the job rather than the whole workflow so other jobs cannot mint tokens. Setting `permissions` drops every permission not listed, so keep `contents: read` (and `pull-requests: write` if you use PR comments).
+- The repository must have a **GitHub project** registered in the Gafaelfawr of the target environment, with the `exec:docverse` scope. Registration is done by the environment's administrators (or by Templatebot for repositories it creates). A project can restrict the workflow file, Git ref, and GitHub environment that may obtain a token.
+- The project's bot user (by default `bot-gh-<owner>-<repo>`) must hold the `uploader` role on the Docverse organization.
+
+**Troubleshooting**
+
+| Error from the step | Cause and fix |
+| ------------------- | ------------- |
+| `GitHub did not make an OIDC ID token available to this job` | The job lacks `id-token: write`, or it is a `pull_request` run from a fork (forks never receive an ID token). |
+| `<owner>/<repo> is not authorized to get a Docverse token …` | No enabled GitHub project in Gafaelfawr matches the run: the repository is not registered, or the project's workflow, ref, or environment constraints do not match. The message includes the values Gafaelfawr saw in the ID token; send it to the environment's administrators. |
+| `… does not grant the exec:docverse scope` | The repository is registered, but its project lacks the scope. Ask the administrators to add it. |
+| `GitHub Actions token exchange is not available …` | `base-url` points at an environment whose Gafaelfawr does not have the token exchange enabled. |
+| `… lacks the uploader role for org …` | Authentication worked, but the bot user has no `uploader` role in the Docverse organization. |
+
+A job that calls a reusable workflow presents that reusable workflow's path in its ID token, so a project that restricts the workflow must name the reusable workflow.
+
+The Gafaelfawr token is sent only to Docverse. The presigned-URL PUT to cloud storage runs without an Authorization header so the token never reaches the cloud provider.
 
 ## Common patterns
 
@@ -88,15 +120,17 @@ on: { push: { branches: [main] } }
 jobs:
   docs:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
     steps:
       - uses: actions/checkout@v4
       - run: make html
-      - uses: lsst-sqre/docverse-upload@v1
+      - uses: lsst-sqre/docverse-upload@v2
         with:
           org: rubin
           project: my-docs
           dir: build/html
-          token: ${{ secrets.DOCVERSE_TOKEN }}
 ```
 
 ### PR docs preview
@@ -106,15 +140,17 @@ on: { pull_request: {} }
 jobs:
   docs:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
     steps:
       - uses: actions/checkout@v4
       - run: make html
-      - uses: lsst-sqre/docverse-upload@v1
+      - uses: lsst-sqre/docverse-upload@v2
         with:
           org: rubin
           project: my-docs
           dir: build/html
-          token: ${{ secrets.DOCVERSE_TOKEN }}
 ```
 
 The action sends `$GITHUB_HEAD_REF` as the build's `git_ref` on `pull_request` events, which is what Docverse uses to scope PR-preview editions.
@@ -125,21 +161,21 @@ When `github-token` is set (and `comment-on-pr` is left at its `true` default), 
 
 ```yaml
 on: { pull_request: {} }
-permissions:
-  contents: read
-  pull-requests: write   # required for the github-token to comment
 jobs:
   docs:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+      pull-requests: write   # required for the github-token to comment
     steps:
       - uses: actions/checkout@v4
       - run: make html
-      - uses: lsst-sqre/docverse-upload@v1
+      - uses: lsst-sqre/docverse-upload@v2
         with:
           org: rubin
           project: my-docs
           dir: build/html
-          token: ${{ secrets.DOCVERSE_TOKEN }}
           github-token: ${{ github.token }}
 ```
 
@@ -170,7 +206,7 @@ pnpm build            # bundle to dist/ via esbuild (scripts/build.mjs)
 
 The repository commits both `generated/api-types.ts` and the bundled `dist/`. CI rebuilds them and runs `git diff --exit-code` to fail PRs that haven't been updated.
 
-CI also runs an end-to-end smoke test (`upload-smoke-test` in `ci.yml`): it executes the action from the checkout's committed `dist/` against the roundtable-dev Docverse server, uploading a small generated site to the `docverse-upload-ci` project in the `jsc-test-20260807` org, then asserts the outputs and fetches the published site. It authenticates with the `DOCVERSE_DEV_TOKEN` secret, a token for the `bot-docverse-upload-action-ci` service user (an `uploader` in that org). The secret exists as both an Actions and a Dependabot secret; fork PRs skip the job because they cannot read secrets.
+CI also runs an end-to-end smoke test (`upload-smoke-test` in `ci.yml`): it executes the action from the checkout's committed `dist/` against the roundtable-dev Docverse server, uploading a small generated site to the `docverse-upload-ci` project in the `jsc-test-20260807` org, then asserts the outputs and fetches the published site. It authenticates by OIDC token exchange like any other user of the action, so it depends on a GitHub project for `lsst-sqre/docverse-upload` registered in roundtable-dev's Gafaelfawr with the `exec:docverse` scope, whose bot user is an `uploader` in that org. Fork PRs skip the job because they never receive an ID token.
 
 ### Updating the OpenAPI spec
 

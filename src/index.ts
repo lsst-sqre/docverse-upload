@@ -1,6 +1,7 @@
 import * as core from '@actions/core';
 import { context, getOctokit } from '@actions/github';
 import { detectGithubActionsAnnotations } from './annotations.js';
+import { AuthError, exchangeGitHubToken } from './auth.js';
 import type { Build, QueueJob } from './client.js';
 import { ApiError, DocverseClient, NetworkError, uploadTarball } from './client.js';
 import { commentMarker, renderCommentBody } from './comment.js';
@@ -27,6 +28,10 @@ export async function run(): Promise<void> {
     const inputs = parseInputs();
     core.info(`Uploading docs for ${inputs.org}/${inputs.project} on ref ${inputs.gitRef}`);
 
+    // Authenticate first so an unregistered repository fails before any work.
+    const token = await exchangeGitHubToken({ baseUrl: inputs.baseUrl });
+    core.info('Obtained a Docverse token from Gafaelfawr via GitHub Actions OIDC.');
+
     const tarball = await createTarball(inputs.dir);
     cleanup = tarball.cleanup;
     if (tarball.excludedCount > 0) {
@@ -35,7 +40,7 @@ export async function run(): Promise<void> {
     core.info(`Built tarball at ${tarball.path} (${tarball.sizeBytes} bytes)`);
 
     const annotations = detectGithubActionsAnnotations();
-    const client = new DocverseClient(inputs.baseUrl, inputs.token, inputs.org, inputs.project);
+    const client = new DocverseClient(inputs.baseUrl, token, inputs.org, inputs.project);
 
     const build = await client.createBuild({
       org: inputs.org,
@@ -257,7 +262,7 @@ function formatJobError(job: QueueJob): string {
 }
 
 function handleFailure(err: unknown): void {
-  if (err instanceof InputError) {
+  if (err instanceof InputError || err instanceof AuthError) {
     core.setFailed(err.message);
     return;
   }

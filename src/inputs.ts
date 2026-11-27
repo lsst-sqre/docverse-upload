@@ -9,7 +9,6 @@ export interface ActionInputs {
   org: string;
   project: string;
   dir: string;
-  token: string;
   baseUrl: string;
   gitRef: string;
   alternateName: string | null;
@@ -68,7 +67,6 @@ export function parseInputs(env: NodeJS.ProcessEnv = process.env): ActionInputs 
   const org = requiredString('org');
   const project = requiredString('project');
   const dir = resolve(requiredString('dir'));
-  const token = requiredString('token');
 
   const baseUrlRaw = optionalString('base-url') ?? DEFAULT_BASE_URL;
   const baseUrl = baseUrlRaw.replace(/\/+$/, '');
@@ -89,6 +87,14 @@ export function parseInputs(env: NodeJS.ProcessEnv = process.env): ActionInputs 
   const waitTimeoutSeconds = parsePositiveNumber('wait-timeout', DEFAULT_WAIT_TIMEOUT_SECONDS);
   const waitTimeoutMs = Math.round(waitTimeoutSeconds * 1000);
 
+  // v1 took a long-lived Gafaelfawr token here. GitHub only logs a generic
+  // "unexpected input" warning for it, so say what actually changed.
+  if (env.INPUT_TOKEN) {
+    core.warning(
+      'The `token` input is no longer used and is ignored: the action now authenticates with GitHub Actions OIDC. Remove `token` from the step, give the job the `id-token: write` permission, and delete the `DOCVERSE_TOKEN` secret once nothing else uses it.',
+    );
+  }
+
   const githubToken = optionalString('github-token');
   const commentOnPr = parseBoolean('comment-on-pr', true);
 
@@ -98,7 +104,6 @@ export function parseInputs(env: NodeJS.ProcessEnv = process.env): ActionInputs 
     org,
     project,
     dir,
-    token,
     baseUrl,
     gitRef,
     alternateName,

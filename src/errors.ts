@@ -31,17 +31,18 @@ export interface HttpFailure {
 /**
  * Convert an HTTP failure from the Docverse API into a user-actionable
  * message. Status codes the action exposes specifically:
- * 401 (token), 403 (role), 404 (org/project), 422 (validation).
+ * 401 (token), 403 (role), 404 (org/project), 422 (validation). The token is
+ * always one the action just obtained from Gafaelfawr by OIDC token exchange.
  */
 export function formatApiError(failure: HttpFailure, ctx: ApiErrorContext): string {
   const { status, statusText } = failure;
   const detail = extractDetail(failure);
 
   if (status === 401) {
-    return 'Authentication failed (HTTP 401). Check that `token` is set to a valid Gafaelfawr token (typically `${{ secrets.DOCVERSE_TOKEN }}`).';
+    return `Docverse at \`${ctx.baseUrl}\` rejected the token that Gafaelfawr issued to this job (HTTP 401). The token may have expired during a long run or been revoked; re-run the job.`;
   }
   if (status === 403) {
-    return `Token is authenticated but lacks \`uploader\` role for org \`${ctx.org}\` (HTTP 403). Contact the org admin to grant access.`;
+    return `This repository's Gafaelfawr bot user is authenticated but lacks the \`uploader\` role for org \`${ctx.org}\` (HTTP 403). Ask the org admin to grant the role to the bot user of the repository's GitHub project in Gafaelfawr (by default \`bot-gh-<owner>-<repo>\`).`;
   }
   if (status === 404) {
     return `Org \`${ctx.org}\` or project \`${ctx.project}\` does not exist on \`${ctx.baseUrl}\` (HTTP 404).`;

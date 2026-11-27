@@ -1,5 +1,5 @@
 name: 'Docverse Upload'
-description: 'Upload a built documentation directory to Docverse.'
+description: 'Upload a built documentation directory to Docverse, authenticating with GitHub Actions OIDC.'
 author: 'Rubin Observatory / SQuaRE'
 branding:
   icon: 'upload-cloud'
@@ -14,11 +14,11 @@ inputs:
   dir:
     description: 'Path to the built documentation directory.'
     required: true
-  token:
-    description: 'Gafaelfawr bearer token. Typically the `DOCVERSE_TOKEN` secret.'
-    required: true
   base-url:
-    description: 'Docverse API base URL.'
+    description: |-
+      Docverse API base URL. The action authenticates by exchanging the job's
+      GitHub Actions OIDC ID token with Gafaelfawr at this URL's origin, so the
+      job needs the `id-token: write` permission.
     required: false
     default: 'https://roundtable.lsst.cloud/docverse/api'
   git-ref:
