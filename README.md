@@ -254,3 +254,5 @@ The Dependabot automation workflows authenticate as the [**Rubin Squarebot** Git
 | `CI_GH_APP_PRIVATE_KEY` | **Actions** secret | `dependabot-auto-merge.yml` (`workflow_run` context, which cannot read Dependabot secrets) |
 
 The private key must be stored in **both** secret stores under the same name: a `workflow_run`-triggered workflow reads the Actions secret store, while a Dependabot-triggered workflow reads the Dependabot secret store.
+
+Both workflows start with a "Show App private key fingerprint" step that prints the SHA256 fingerprint of the key they read, in the log and the job summary. It matches the fingerprint listed for the key on the App's settings page, which identifies the key to revoke or rotate.
