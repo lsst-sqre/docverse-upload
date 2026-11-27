@@ -54,11 +54,12 @@ jobs:
   # create → upload → patch → poll → publish flow (plus the PR comment) that
   # the msw-mocked unit tests cannot.
   #
-  # Credentials: DOCVERSE_DEV_TOKEN is a Gafaelfawr token for the
-  # `bot-docverse-upload-action-ci` service user, which holds the `uploader`
-  # role in the `jsc-test-20260807` org on roundtable-dev. It is provisioned
-  # as both an Actions secret and a Dependabot secret so Dependabot PRs get
-  # the smoke test too. Fork PRs cannot read secrets, so they are skipped.
+  # Credentials: none are stored. The action exchanges the job's GitHub OIDC
+  # ID token for a Gafaelfawr token (SQR-120), which requires `id-token: write`
+  # and a GitHub project for this repository registered in roundtable-dev's
+  # Gafaelfawr with the `exec:docverse` scope. That project's bot user must
+  # hold the `uploader` role in the `jsc-test-20260807` org. Fork PRs never
+  # receive an ID token, so they are skipped.
   upload-smoke-test:
     needs: build
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
@@ -66,6 +67,7 @@ jobs:
     timeout-minutes: 15
     permissions:
       contents: read
+      id-token: write # for the Gafaelfawr token exchange
       pull-requests: write # for the action's PR comment
     env:
       PUBLISHED_HOST: docverse-upload-ci.jsc-docverse.ca
@@ -97,7 +99,6 @@ jobs:
           org: jsc-test-20260807
           project: docverse-upload-ci
           dir: site
-          token: ${{ secrets.DOCVERSE_DEV_TOKEN }}
           base-url: https://roundtable-dev.lsst.cloud/docverse/api
           github-token: ${{ github.token }}
 

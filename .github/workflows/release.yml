@@ -56,11 +56,20 @@ jobs:
             exit 1
           fi
 
+          # scriv writes an `<a id='changelog-X'></a>` anchor line before each
+          # `## X` heading, so the section ends at the next anchor as well as
+          # the next heading. Blank lines are held back until more content
+          # follows, which drops leading and trailing blank lines.
           NOTES_FILE="$(mktemp)"
           awk -v ver="$VERSION" '
             $0 ~ "^## "ver"( |$)" {flag=1; next}
-            flag && /^## / {exit}
-            flag {print}
+            flag && (/^## / || /^<a id=.changelog-/) {exit}
+            flag && /^[ \t\r]*$/ {blank++; next}
+            flag {
+              if (started) for (; blank > 0; blank--) print ""
+              blank = 0; started = 1
+              print
+            }
           ' CHANGELOG.md > "$NOTES_FILE"
           if ! grep -q '[^[:space:]]' "$NOTES_FILE"; then
             echo "::error::The '## ${VERSION}' section of CHANGELOG.md is empty."

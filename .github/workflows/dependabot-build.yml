@@ -16,6 +16,26 @@ name: Rebuild dist/ for Dependabot PRs
 # - Safe for Dependabot PRs because Dependabot creates branches in this same
 #   repository (not forks), so the `pull_request` trigger has the permissions
 #   it needs. This is the pattern GitHub's Dependabot docs recommend.
+# - Privilege separation between two jobs. A Dependabot PR is, by definition,
+#   freshly bumped dependency code that nobody has reviewed, and building runs
+#   it (openapi-typescript, esbuild, its plugins, allowlisted install scripts):
+#     * `rebuild-dist` runs `pnpm install` / `pnpm generate-types` /
+#       `pnpm build`. It references no secrets, never mints the App token, has
+#       a read-only GITHUB_TOKEN that is not persisted into the checkout, and
+#       hands its output on only as the `bundle` artifact.
+#     * `push-dist` holds the write-capable App token. It must NEVER run
+#       `pnpm install`, `pnpm build`, or any other code from the repository's
+#       dependencies or from the artifact: it only copies the artifact's files
+#       into generated/ and dist/ and commits them. Keep it that way when
+#       editing this file.
+#   The artifact is treated as untrusted data: it is extracted outside the
+#   workspace and checked (only generated/ and dist/, holding regular,
+#   non-hidden files) before the App token exists, then copied over cleared
+#   generated/ and dist/ directories.
+#   What this does NOT protect: the *content* of the bundle. A compromised
+#   dependency can still emit a malicious dist/, which is then committed and
+#   (for minor/patch updates) auto-merged; reviewing that remains the job of
+#   the Dependabot cooldown, the lockfile, and whoever cuts the next release.
 #
 # IMPORTANT: Dependabot credential requirements
 # - GitHub isolates Dependabot-triggered workflows: only Dependabot *secrets*
@@ -32,47 +52,38 @@ name: Rebuild dist/ for Dependabot PRs
 # - CI_GH_APP_CLIENT_ID / CI_GH_APP_PRIVATE_KEY are the lsst-sqre org App
 #   variable/secret names, provisioned on this repository.
 
-permissions:
-  contents: write
-  pull-requests: write
+# No GITHUB_TOKEN permissions by default; each job declares what it needs.
+# The push is made with the App token, not the GITHUB_TOKEN.
+permissions: {}
 
 on:
   pull_request:
     types: [opened, synchronize]
 
 jobs:
+  # UNPRIVILEGED: runs the updated dependencies. No secrets, no App token.
   rebuild-dist:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     # Author check (Confused-Deputy guard) AND triggering-actor check: only run on
     # a genuine Dependabot-triggered push. On a maintainer's push (e.g. the
     # dependabot-merge skill) or this workflow's own App-token rebuild push, the
-    # actor isn't dependabot[bot], so the job skips cleanly instead of failing on
-    # the Dependabot-only CI_GH_APP_PRIVATE_KEY secret being unavailable.
+    # actor isn't dependabot[bot], so the workflow skips cleanly instead of
+    # failing on the Dependabot-only CI_GH_APP_PRIVATE_KEY secret being
+    # unavailable.
     if: github.event.pull_request.user.login == 'dependabot[bot]' && github.actor == 'dependabot[bot]'
+    permissions:
+      contents: read
     steps:
-      - name: Generate GitHub App token
-        id: token
-        uses: actions/create-github-app-token@v3
-        with:
-          client-id: ${{ vars.CI_GH_APP_CLIENT_ID }}
-          private-key: ${{ secrets.CI_GH_APP_PRIVATE_KEY }}
-
-      - name: Resolve App bot user id
-        id: app-user
-        env:
-          GH_TOKEN: ${{ steps.token.outputs.token }}
-          APP_SLUG: ${{ steps.token.outputs.app-slug }}
-        run: |
-          USER_ID=$(gh api "/users/${APP_SLUG}[bot]" --jq .id)
-          echo "login=${APP_SLUG}[bot]" >> "$GITHUB_OUTPUT"
-          echo "user-id=${USER_ID}" >> "$GITHUB_OUTPUT"
-
-      - name: Checkout PR branch
+      # The exact commit that triggered this run (not the branch tip, and not
+      # the merge commit), so push-dist can tell whether the bundle it receives
+      # still belongs to the branch head. No credentials are left in
+      # .git/config for the build to find.
+      - name: Checkout PR head commit
         uses: actions/checkout@v7
         with:
-          fetch-depth: 0
-          ref: ${{ github.event.pull_request.head.ref }}
-          token: ${{ steps.token.outputs.token }}
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
 
       - uses: pnpm/action-setup@v6
 
@@ -90,17 +101,142 @@ jobs:
       - name: Build bundle
         run: pnpm build
 
+      # Both paths share the repository root as their common ancestor, so the
+      # artifact holds top-level generated/ and dist/ directories.
+      - name: Upload rebuilt generated/ and dist/
+        uses: actions/upload-artifact@v7
+        with:
+          name: bundle
+          path: |
+            generated/
+            dist/
+          if-no-files-found: error
+          retention-days: 1
+
+  # PRIVILEGED: holds the App token. Must not run dependency code (see the
+  # Security Design notes at the top of this file).
+  push-dist:
+    needs: rebuild-dist
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    if: github.event.pull_request.user.login == 'dependabot[bot]' && github.actor == 'dependabot[bot]'
+    # Everything here authenticates with the App token; same-run artifact
+    # downloads don't use the GITHUB_TOKEN.
+    permissions: {}
+    steps:
+      # Identify which App private key this repository holds, so it can be
+      # found on the App's settings page when it needs to be revoked or
+      # rotated. The value is the SHA256 fingerprint GitHub shows for each
+      # key there: a hash of the *public* half, so it is safe to print.
+      # This job is Dependabot-triggered, so it reads the Dependabot secret.
+      - name: Show App private key fingerprint
+        env:
+          PRIVATE_KEY: ${{ secrets.CI_GH_APP_PRIVATE_KEY }}
+          SECRET_STORE: Dependabot
+        run: |
+          set -o pipefail
+          if [ -z "$PRIVATE_KEY" ]; then
+            echo "::error::CI_GH_APP_PRIVATE_KEY is not set in this repository's $SECRET_STORE secrets."
+            exit 1
+          fi
+          fingerprint=$(printf '%s\n' "$PRIVATE_KEY" \
+            | openssl rsa -pubout -outform DER 2>/dev/null \
+            | openssl sha256 -binary | openssl base64)
+          echo "CI_GH_APP_PRIVATE_KEY ($SECRET_STORE secret) fingerprint: SHA256:$fingerprint"
+          echo "\`CI_GH_APP_PRIVATE_KEY\` ($SECRET_STORE secret) fingerprint: \`SHA256:$fingerprint\`" >> "$GITHUB_STEP_SUMMARY"
+
+      # Fetch and vet the untrusted artifact BEFORE the App token is minted.
+      # It is extracted into an empty directory outside the workspace, so
+      # nothing it contains lands in the checkout except by the explicit copy
+      # below.
+      - name: Download rebuilt generated/ and dist/
+        uses: actions/download-artifact@v8
+        with:
+          name: bundle
+          path: ${{ runner.temp }}/bundle-artifact
+
+      # The build emits only plain, non-hidden files under generated/ and
+      # dist/ (and upload-artifact drops hidden ones), so anything else — a
+      # third top-level entry, a symlink, a device, a `.git*` or other dotfile
+      # — means the artifact was tampered with.
+      - name: Check the artifact holds only plain bundle files
+        run: |
+          set -euo pipefail
+          ARTIFACT_DIR="$RUNNER_TEMP/bundle-artifact"
+          bad=$(find "$ARTIFACT_DIR" -mindepth 1 \( ! \( -type f -o -type d \) -o -name '.*' \) -print)
+          extra=$(find "$ARTIFACT_DIR" -mindepth 1 -maxdepth 1 ! \( -type d \( -name generated -o -name dist \) \) -print)
+          if [ -n "$bad$extra" ]; then
+            echo "::error::bundle artifact contains unexpected entries; refusing to commit it."
+            printf '%s\n' "$bad" "$extra"
+            exit 1
+          fi
+          for dir in generated dist; do
+            if [ ! -d "$ARTIFACT_DIR/$dir" ] || [ -z "$(find "$ARTIFACT_DIR/$dir" -type f -print -quit)" ]; then
+              echo "::error::bundle artifact has no files in $dir/; refusing to commit it."
+              exit 1
+            fi
+          done
+
+      - name: Generate GitHub App token
+        id: token
+        uses: actions/create-github-app-token@v3
+        with:
+          client-id: ${{ vars.CI_GH_APP_CLIENT_ID }}
+          private-key: ${{ secrets.CI_GH_APP_PRIVATE_KEY }}
+
+      - name: Resolve App bot user id
+        id: app-user
+        env:
+          GH_TOKEN: ${{ steps.token.outputs.token }}
+          APP_SLUG: ${{ steps.token.outputs.app-slug }}
+        run: |
+          USER_ID=$(gh api "/users/${APP_SLUG}[bot]" --jq .id)
+          echo "login=${APP_SLUG}[bot]" >> "$GITHUB_OUTPUT"
+          echo "user-id=${USER_ID}" >> "$GITHUB_OUTPUT"
+
+      # The App token is persisted in this checkout so `git push` works. That
+      # is safe only because no dependency code runs in this job.
+      - name: Checkout PR branch
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.ref }}
+          token: ${{ steps.token.outputs.token }}
+
       - name: Commit rebuilt generated/ and dist/ if changed
         env:
           APP_LOGIN: ${{ steps.app-user.outputs.login }}
           APP_USER_ID: ${{ steps.app-user.outputs.user-id }}
+          BUILT_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
-          git add generated dist
+          set -euo pipefail
+          # The bundle was built from BUILT_SHA. If the branch has moved since
+          # (Dependabot rebased or recreated the PR), it is stale; the newer
+          # push has its own run of this workflow.
+          if [ "$(git rev-parse HEAD)" != "$BUILT_SHA" ]; then
+            echo "::notice::PR branch moved past $BUILT_SHA; skipping the stale bundle."
+            exit 0
+          fi
+
+          # Replace generated/ and dist/ exactly with the artifact, so files
+          # the build no longer emits are deleted. Data only: copy, never
+          # execute.
+          for dir in generated dist; do
+            rm -rf "$dir"
+            mkdir "$dir"
+            cp -R "$RUNNER_TEMP/bundle-artifact/$dir"/. "$dir"/
+          done
+          # Zip artifacts don't carry file modes; pin them to what is committed.
+          find generated dist -type d -exec chmod 755 {} +
+          find generated dist -type f -exec chmod 644 {} +
+
+          git add --all -- generated dist
           if git diff --staged --quiet; then
             echo "generated/ and dist/ already in sync; nothing to commit."
             exit 0
           fi
           git -c user.name="${APP_LOGIN}" \
               -c user.email="${APP_USER_ID}+${APP_LOGIN}@users.noreply.github.com" \
+              -c core.hooksPath=/dev/null \
               commit -m "Rebuild dist/ for dependency update"
           git push

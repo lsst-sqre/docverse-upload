@@ -38,6 +38,27 @@ jobs:
       github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'pull_request'
 
     steps:
+      # Identify which App private key this repository holds, so it can be
+      # found on the App's settings page when it needs to be revoked or
+      # rotated. The value is the SHA256 fingerprint GitHub shows for each
+      # key there: a hash of the *public* half, so it is safe to print.
+      # This job runs in workflow_run context, so it reads the Actions secret.
+      - name: Show App private key fingerprint
+        env:
+          PRIVATE_KEY: ${{ secrets.CI_GH_APP_PRIVATE_KEY }}
+          SECRET_STORE: Actions
+        run: |
+          set -o pipefail
+          if [ -z "$PRIVATE_KEY" ]; then
+            echo "::error::CI_GH_APP_PRIVATE_KEY is not set in this repository's $SECRET_STORE secrets."
+            exit 1
+          fi
+          fingerprint=$(printf '%s\n' "$PRIVATE_KEY" \
+            | openssl rsa -pubout -outform DER 2>/dev/null \
+            | openssl sha256 -binary | openssl base64)
+          echo "CI_GH_APP_PRIVATE_KEY ($SECRET_STORE secret) fingerprint: SHA256:$fingerprint"
+          echo "\`CI_GH_APP_PRIVATE_KEY\` ($SECRET_STORE secret) fingerprint: \`SHA256:$fingerprint\`" >> "$GITHUB_STEP_SUMMARY"
+
       - name: Generate GitHub App token
         id: generate_token
         uses: actions/create-github-app-token@v3
@@ -106,8 +127,9 @@ jobs:
       # authoritative source — in pull_request context). We can't run
       # fetch-metadata here because this workflow uses the workflow_run trigger
       # for security. Fail-closed allowlist: only dependencies-patch /
-      # dependencies-minor are safe to merge; dependencies-major or no label at
-      # all (e.g. labeling failed) keeps auto-merge disabled.
+      # dependencies-minor are safe to merge; dependencies-major (even combined
+      # with another dependencies-* label) or no label at all (e.g. labeling
+      # failed) keeps auto-merge disabled.
       - name: Get Dependabot metadata
         if: steps.verify.outputs.is_dependabot == 'true'
         id: metadata
@@ -126,7 +148,9 @@ jobs:
             const isMajor = labels.includes('dependencies-major');
             const isMinor = labels.includes('dependencies-minor');
             const isPatch = labels.includes('dependencies-patch');
-            const safe = isMinor || isPatch;                 // allowlist; major/none => false
+            // allowlist; none => false, and major always vetoes (even alongside
+            // a stale or hand-added minor/patch label)
+            const safe = !isMajor && (isMinor || isPatch);
             const updateType = isMajor ? 'dependencies-major'
                              : isMinor ? 'dependencies-minor'
                              : isPatch ? 'dependencies-patch'

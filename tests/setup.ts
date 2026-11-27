@@ -30,6 +30,8 @@ const SNAPSHOT_KEYS = [
   'GITHUB_SERVER_URL',
   'GITHUB_OUTPUT',
   'GITHUB_STEP_SUMMARY',
+  'ACTIONS_ID_TOKEN_REQUEST_URL',
+  'ACTIONS_ID_TOKEN_REQUEST_TOKEN',
 ];
 
 const snapshot = new Map<string, string | undefined>();

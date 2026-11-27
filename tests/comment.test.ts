@@ -11,7 +11,6 @@ function makeInputs(overrides: Partial<ActionInputs> = {}): ActionInputs {
     org: 'rubin',
     project: 'docs',
     dir: '/tmp/docs',
-    token: 'gt-test',
     baseUrl: 'https://example.test/docverse/api',
     gitRef: 'tickets/DM-1',
     alternateName: null,

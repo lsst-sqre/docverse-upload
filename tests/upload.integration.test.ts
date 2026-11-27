@@ -313,7 +313,7 @@ describe('upload flow', () => {
         annotations: null,
       }),
     ).rejects.toMatchObject({
-      message: expect.stringContaining('Authentication failed'),
+      message: expect.stringContaining('rejected the token that Gafaelfawr issued'),
     });
   });
 

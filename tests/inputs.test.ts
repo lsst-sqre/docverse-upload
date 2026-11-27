@@ -1,8 +1,16 @@
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import * as core from '@actions/core';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { InputError, parseInputs, resolveGitRef } from '../src/inputs.js';
+
+// `@actions/core` v3 ships read-only ESM exports, so `vi.spyOn(core, ...)`
+// throws; mock the module and replace just `warning`.
+vi.mock('@actions/core', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@actions/core')>();
+  return { ...actual, warning: vi.fn() };
+});
 
 let workDir = '';
 
@@ -19,7 +27,6 @@ function setBaseInputs(extra: Record<string, string> = {}) {
   process.env.INPUT_ORG = 'rubin';
   process.env.INPUT_PROJECT = 'docs';
   process.env.INPUT_DIR = workDir;
-  process.env.INPUT_TOKEN = 'gt-abc';
   for (const [k, v] of Object.entries(extra)) {
     process.env[`INPUT_${k.toUpperCase()}`] = v;
   }
@@ -58,6 +65,15 @@ describe('parseInputs', () => {
     expect(inputs.waitForPublish).toBe(true);
     expect(inputs.waitTimeoutMs).toBe(1800 * 1000);
     expect(inputs.alternateName).toBeNull();
+  });
+
+  it('warns that a leftover v1 `token` input is ignored', () => {
+    setBaseInputs({ token: 'gt-abc' });
+    process.env.GITHUB_REF_NAME = 'main';
+    expect(parseInputs()).not.toHaveProperty('token');
+    expect(vi.mocked(core.warning)).toHaveBeenCalledWith(
+      expect.stringContaining('`token` input is no longer used'),
+    );
   });
 
   it('honors an explicit git-ref input', () => {

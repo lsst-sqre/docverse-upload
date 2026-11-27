@@ -4,16 +4,16 @@ import { formatApiError, formatNetworkError, formatUploadError } from '../src/er
 const ctx = { org: 'rubin', project: 'docs', baseUrl: 'https://example.test' };
 
 describe('formatApiError', () => {
-  it('maps 401 to a token-focused message', () => {
+  it('maps 401 to a message about the issued token', () => {
     expect(
       formatApiError({ status: 401, statusText: 'Unauthorized', body: null, rawBody: '' }, ctx),
-    ).toMatch(/Authentication failed/);
+    ).toMatch(/rejected the token that Gafaelfawr issued/);
   });
 
   it('maps 403 to a role-focused message that includes the org', () => {
     expect(
       formatApiError({ status: 403, statusText: 'Forbidden', body: null, rawBody: '' }, ctx),
-    ).toMatch(/lacks `uploader` role for org `rubin`/);
+    ).toMatch(/lacks the `uploader` role for org `rubin`/);
   });
 
   it('maps 404 to an org/project message that includes the base URL', () => {
