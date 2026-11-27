@@ -3,7 +3,12 @@ import * as core from '@actions/core';
 /** Gafaelfawr scope the action requests; Docverse's API requires it. */
 export const DOCVERSE_SCOPE = 'exec:docverse';
 
-const TOKEN_EXCHANGE_PATH = '/auth/api/v1/github/token';
+const DISCOVERY_PATH = '/repertoire/discovery';
+/** Gafaelfawr's v1 API path, used when service discovery has no answer. */
+const DEFAULT_GAFAELFAWR_API_PATH = '/auth/api/v1';
+/** Token exchange route, relative to Gafaelfawr's v1 API. */
+const TOKEN_EXCHANGE_ROUTE = '/github/token';
+const DISCOVERY_TIMEOUT_MS = 10_000;
 const GRANT_TYPE = 'urn:ietf:params:oauth:grant-type:token-exchange';
 const ID_TOKEN_TYPE = 'urn:ietf:params:oauth:token-type:id_token';
 
@@ -19,7 +24,7 @@ type Fetch = typeof globalThis.fetch;
 export class AuthError extends Error {}
 
 export interface TokenExchangeOptions {
-  /** Docverse API base URL; Gafaelfawr is assumed to share its origin. */
+  /** Docverse API base URL; its origin identifies the Phalanx environment. */
   baseUrl: string;
   env?: NodeJS.ProcessEnv;
   fetchImpl?: Fetch;
@@ -29,11 +34,76 @@ export interface TokenExchangeOptions {
 
 /**
  * Base URL of the Phalanx environment hosting Docverse (the origin of
- * `base-url`). Gafaelfawr serves its API there under `/auth`, and by default
- * requires this exact URL as the audience of the GitHub ID token (SQR-120).
+ * `base-url`). Repertoire publishes the environment's service discovery
+ * there, and Gafaelfawr by default requires this exact URL as the audience of
+ * the GitHub ID token (SQR-120).
  */
 export function environmentUrl(baseUrl: string): string {
   return new URL(baseUrl).origin;
+}
+
+/**
+ * Locate Gafaelfawr's v1 API through the environment's Repertoire service
+ * discovery document, so the action follows Gafaelfawr if its API ever moves.
+ * Discovery is best-effort: if the document cannot be fetched or does not
+ * list Gafaelfawr, fall back to the conventional `/auth/api/v1` path on the
+ * environment's base URL.
+ */
+export async function discoverGafaelfawrApiUrl(
+  environment: string,
+  fetchImpl: Fetch = globalThis.fetch,
+): Promise<string> {
+  const fallback = `${environment}${DEFAULT_GAFAELFAWR_API_PATH}`;
+  const discoveryUrl = `${environment}${DISCOVERY_PATH}`;
+  let reason: string;
+  try {
+    const response = await fetchImpl(discoveryUrl, {
+      headers: { Accept: 'application/json' },
+      signal: AbortSignal.timeout(DISCOVERY_TIMEOUT_MS),
+    });
+    if (response.ok) {
+      const url = gafaelfawrApiUrlFrom(await response.json());
+      if (url !== null) {
+        core.debug(`Service discovery located the Gafaelfawr API at ${url}`);
+        return url;
+      }
+      reason = 'it does not list a usable Gafaelfawr API URL';
+    } else {
+      reason = `HTTP ${response.status}`;
+    }
+  } catch (err) {
+    reason = messageOf(err);
+  }
+  core.info(
+    `Service discovery at ${discoveryUrl} was not usable (${reason}); assuming Gafaelfawr is at ${fallback}.`,
+  );
+  return fallback;
+}
+
+/**
+ * Read `services.internal.gafaelfawr` from a Repertoire discovery document:
+ * the versioned `versions.v1.url` when present, else the service root plus
+ * `/api/v1`. Returns `null` when neither is an HTTP(S) URL.
+ */
+function gafaelfawrApiUrlFrom(discovery: unknown): string | null {
+  const service = property(property(property(discovery, 'services'), 'internal'), 'gafaelfawr');
+  const versioned = httpUrl(property(property(property(service, 'versions'), 'v1'), 'url'));
+  if (versioned !== null) return versioned;
+  const root = httpUrl(property(service, 'url'));
+  return root !== null ? `${root}/api/v1` : null;
+}
+
+function property(value: unknown, key: string): unknown {
+  return typeof value === 'object' && value !== null
+    ? (value as Record<string, unknown>)[key]
+    : undefined;
+}
+
+/** A string that parses as an HTTP(S) URL, without trailing slashes. */
+function httpUrl(value: unknown): string | null {
+  if (typeof value !== 'string' || !URL.canParse(value)) return null;
+  if (!/^https?:$/.test(new URL(value).protocol)) return null;
+  return value.replace(/\/+$/, '');
 }
 
 /**
@@ -47,7 +117,6 @@ export async function exchangeGitHubToken(opts: TokenExchangeOptions): Promise<s
   const getIdToken = opts.getIdToken ?? ((audience: string) => core.getIDToken(audience));
 
   const audience = environmentUrl(opts.baseUrl);
-  const exchangeUrl = `${audience}${TOKEN_EXCHANGE_PATH}`;
   const repository = env.GITHUB_REPOSITORY || 'this repository';
 
   if (!env.ACTIONS_ID_TOKEN_REQUEST_URL || !env.ACTIONS_ID_TOKEN_REQUEST_TOKEN) {
@@ -66,6 +135,8 @@ export async function exchangeGitHubToken(opts: TokenExchangeOptions): Promise<s
       `Could not get a GitHub OIDC ID token for audience \`${audience}\`: ${messageOf(err)}`,
     );
   }
+
+  const exchangeUrl = `${await discoverGafaelfawrApiUrl(audience, fetchImpl)}${TOKEN_EXCHANGE_ROUTE}`;
 
   let response: Response;
   try {

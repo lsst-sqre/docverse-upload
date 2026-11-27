@@ -24685,7 +24685,10 @@ function omitEmpty(values) {
 
 // src/auth.ts
 var DOCVERSE_SCOPE = "exec:docverse";
-var TOKEN_EXCHANGE_PATH = "/auth/api/v1/github/token";
+var DISCOVERY_PATH = "/repertoire/discovery";
+var DEFAULT_GAFAELFAWR_API_PATH = "/auth/api/v1";
+var TOKEN_EXCHANGE_ROUTE = "/github/token";
+var DISCOVERY_TIMEOUT_MS = 1e4;
 var GRANT_TYPE = "urn:ietf:params:oauth:grant-type:token-exchange";
 var ID_TOKEN_TYPE = "urn:ietf:params:oauth:token-type:id_token";
 var NO_PROJECT_PREFIX = "No enabled GitHub project matches";
@@ -24694,12 +24697,53 @@ var AuthError = class extends Error {
 function environmentUrl(baseUrl2) {
   return new URL(baseUrl2).origin;
 }
+async function discoverGafaelfawrApiUrl(environment, fetchImpl = globalThis.fetch) {
+  const fallback = `${environment}${DEFAULT_GAFAELFAWR_API_PATH}`;
+  const discoveryUrl = `${environment}${DISCOVERY_PATH}`;
+  let reason;
+  try {
+    const response = await fetchImpl(discoveryUrl, {
+      headers: { Accept: "application/json" },
+      signal: AbortSignal.timeout(DISCOVERY_TIMEOUT_MS)
+    });
+    if (response.ok) {
+      const url = gafaelfawrApiUrlFrom(await response.json());
+      if (url !== null) {
+        debug(`Service discovery located the Gafaelfawr API at ${url}`);
+        return url;
+      }
+      reason = "it does not list a usable Gafaelfawr API URL";
+    } else {
+      reason = `HTTP ${response.status}`;
+    }
+  } catch (err) {
+    reason = messageOf(err);
+  }
+  info(
+    `Service discovery at ${discoveryUrl} was not usable (${reason}); assuming Gafaelfawr is at ${fallback}.`
+  );
+  return fallback;
+}
+function gafaelfawrApiUrlFrom(discovery) {
+  const service = property(property(property(discovery, "services"), "internal"), "gafaelfawr");
+  const versioned = httpUrl(property(property(property(service, "versions"), "v1"), "url"));
+  if (versioned !== null) return versioned;
+  const root = httpUrl(property(service, "url"));
+  return root !== null ? `${root}/api/v1` : null;
+}
+function property(value, key) {
+  return typeof value === "object" && value !== null ? value[key] : void 0;
+}
+function httpUrl(value) {
+  if (typeof value !== "string" || !URL.canParse(value)) return null;
+  if (!/^https?:$/.test(new URL(value).protocol)) return null;
+  return value.replace(/\/+$/, "");
+}
 async function exchangeGitHubToken(opts) {
   const env = opts.env ?? process.env;
   const fetchImpl = opts.fetchImpl ?? globalThis.fetch;
   const getIdToken = opts.getIdToken ?? ((audience2) => getIDToken(audience2));
   const audience = environmentUrl(opts.baseUrl);
-  const exchangeUrl = `${audience}${TOKEN_EXCHANGE_PATH}`;
   const repository = env.GITHUB_REPOSITORY || "this repository";
   if (!env.ACTIONS_ID_TOKEN_REQUEST_URL || !env.ACTIONS_ID_TOKEN_REQUEST_TOKEN) {
     throw new AuthError(
@@ -24714,6 +24758,7 @@ async function exchangeGitHubToken(opts) {
       `Could not get a GitHub OIDC ID token for audience \`${audience}\`: ${messageOf(err)}`
     );
   }
+  const exchangeUrl = `${await discoverGafaelfawrApiUrl(audience, fetchImpl)}${TOKEN_EXCHANGE_ROUTE}`;
   let response;
   try {
     response = await fetchImpl(exchangeUrl, {

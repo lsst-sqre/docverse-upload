@@ -17,7 +17,8 @@ inputs:
   base-url:
     description: |-
       Docverse API base URL. The action authenticates by exchanging the job's
-      GitHub Actions OIDC ID token with Gafaelfawr at this URL's origin, so the
+      GitHub Actions OIDC ID token with the Gafaelfawr of the environment at
+      this URL's origin (located through Repertoire service discovery), so the
       job needs the `id-token: write` permission.
     required: false
     default: 'https://roundtable.lsst.cloud/docverse/api'

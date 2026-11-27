@@ -1,8 +1,13 @@
 import * as core from '@actions/core';
 import { HttpResponse, http } from 'msw';
 import { setupServer } from 'msw/node';
-import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
-import { AuthError, environmentUrl, exchangeGitHubToken } from '../src/auth.js';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import {
+  AuthError,
+  discoverGafaelfawrApiUrl,
+  environmentUrl,
+  exchangeGitHubToken,
+} from '../src/auth.js';
 
 // `@actions/core` v3 ships read-only ESM exports, so `vi.spyOn(core, ...)`
 // throws; mock the module and replace just `setSecret`.
@@ -13,6 +18,7 @@ vi.mock('@actions/core', async (importOriginal) => {
 
 const BASE_URL = 'https://example.test/docverse/api';
 const EXCHANGE_URL = 'https://example.test/auth/api/v1/github/token';
+const DISCOVERY_URL = 'https://example.test/repertoire/discovery';
 
 const ENV = {
   ACTIONS_ID_TOKEN_REQUEST_URL: 'https://actions.example/idtoken?v=1',
@@ -23,6 +29,11 @@ const ENV = {
 const server = setupServer();
 
 beforeAll(() => server.listen({ onUnhandledRequest: 'error' }));
+// By default the environment publishes no discovery document, so the action
+// falls back to the conventional Gafaelfawr path that EXCHANGE_URL uses.
+beforeEach(() => {
+  server.use(http.get(DISCOVERY_URL, () => new HttpResponse(null, { status: 404 })));
+});
 afterEach(() => server.resetHandlers());
 afterAll(() => server.close());
 
@@ -47,7 +58,70 @@ describe('environmentUrl', () => {
   });
 });
 
+describe('discoverGafaelfawrApiUrl', () => {
+  const ENVIRONMENT = 'https://example.test';
+  const FALLBACK = 'https://example.test/auth/api/v1';
+
+  function discovery(gafaelfawr: unknown) {
+    server.use(
+      http.get(DISCOVERY_URL, () => HttpResponse.json({ services: { internal: { gafaelfawr } } })),
+    );
+  }
+
+  it('uses the versioned API URL from service discovery', async () => {
+    discovery({
+      url: 'https://example.test/auth',
+      versions: { v1: { url: 'https://example.test/gafaelfawr/api/v1/' } },
+    });
+    await expect(discoverGafaelfawrApiUrl(ENVIRONMENT)).resolves.toBe(
+      'https://example.test/gafaelfawr/api/v1',
+    );
+  });
+
+  it('derives the API URL from the service root without a versions entry', async () => {
+    discovery({ url: 'https://auth.example.test/' });
+    await expect(discoverGafaelfawrApiUrl(ENVIRONMENT)).resolves.toBe(
+      'https://auth.example.test/api/v1',
+    );
+  });
+
+  it.each([
+    ['is missing', () => new HttpResponse(null, { status: 404 })],
+    ['is unreachable', () => HttpResponse.error()],
+    ['is not JSON', () => new HttpResponse('<html>', { status: 200 })],
+    ['does not list Gafaelfawr', () => HttpResponse.json({ services: { internal: {} } })],
+    [
+      'lists a non-HTTP URL',
+      () => HttpResponse.json({ services: { internal: { gafaelfawr: { url: 'ftp://x/auth' } } } }),
+    ],
+  ])('falls back to /auth when discovery %s', async (_case, resolver) => {
+    server.use(http.get(DISCOVERY_URL, resolver));
+    await expect(discoverGafaelfawrApiUrl(ENVIRONMENT)).resolves.toBe(FALLBACK);
+  });
+});
+
 describe('exchangeGitHubToken', () => {
+  it('posts the exchange to the Gafaelfawr URL from service discovery', async () => {
+    server.use(
+      http.get(DISCOVERY_URL, () =>
+        HttpResponse.json({
+          services: {
+            internal: {
+              gafaelfawr: { versions: { v1: { url: 'https://example.test/moved/api/v1' } } },
+            },
+          },
+        }),
+      ),
+      http.post('https://example.test/moved/api/v1/github/token', () =>
+        HttpResponse.json({ access_token: 'gt-moved' }),
+      ),
+    );
+    const getIdToken = vi.fn(async () => 'id-token-jwt');
+    await expect(exchange({ getIdToken })).resolves.toBe('gt-moved');
+    // The audience stays the environment's base URL wherever Gafaelfawr lives.
+    expect(getIdToken).toHaveBeenCalledWith('https://example.test');
+  });
+
   it('exchanges the ID token for a masked Gafaelfawr token', async () => {
     const getIdToken = vi.fn(async () => 'id-token-jwt');
     let contentType: string | null = null;

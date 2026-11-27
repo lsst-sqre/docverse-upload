@@ -4,4 +4,5 @@
 
 ### New features
 
+- The action locates Gafaelfawr through the environment's Repertoire service discovery document (`/repertoire/discovery` on the origin of `base-url`), so it follows Gafaelfawr if its API moves. If discovery is unavailable or does not list Gafaelfawr, it falls back to `/auth/api/v1` on that origin.
 - Authentication failures explain what to fix. The step reports a missing `id-token: write` permission, a repository with no matching GitHub project registered in Gafaelfawr (including the repository, workflow, ref, and environment that Gafaelfawr saw in the ID token), a project that does not grant `exec:docverse`, and an environment where the token exchange is not enabled.

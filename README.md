@@ -86,8 +86,9 @@ Slug ASC is the tiebreak at every level. In `editions-json`, `kind` is the serve
 The action authenticates with [GitHub Actions OIDC](https://docs.github.com/en/actions/concepts/security/openid-connect), so no long-lived token is stored in the repository's secrets. On each run it:
 
 1. requests an ID token from GitHub with the environment's base URL (the origin of `base-url`, e.g. `https://roundtable.lsst.cloud`) as its audience;
-2. exchanges it at Gafaelfawr's `POST /auth/api/v1/github/token` endpoint for a short-lived [Gafaelfawr](https://gafaelfawr.lsst.io) token with the `exec:docverse` scope;
-3. uses that token, which is masked in the job log, for the Docverse API calls.
+2. locates Gafaelfawr through the environment's [Repertoire](https://repertoire.lsst.io) service discovery document (`/repertoire/discovery` on the same origin), falling back to `/auth/api/v1` on that origin if discovery is unavailable or does not list Gafaelfawr;
+3. exchanges the ID token at Gafaelfawr's `github/token` endpoint for a short-lived [Gafaelfawr](https://gafaelfawr.lsst.io) token with the `exec:docverse` scope;
+4. uses that token, which is masked in the job log, for the Docverse API calls.
 
 The design is described in [SQR-120](https://sqr-120.lsst.io).
 
