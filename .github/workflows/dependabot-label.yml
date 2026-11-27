@@ -55,7 +55,16 @@ jobs:
             patch) COLOR=0E8A16 ;;
             *)     COLOR=BFD4F2 ;;
           esac
-          # idempotent create-if-missing, then add to PR
+          # idempotent create-if-missing
           gh label create "$LABEL" --repo "$GITHUB_REPOSITORY" \
             --color "$COLOR" --description "Dependabot semver update type" --force || true
+          # Drop stale semver labels from an earlier push (the PR may have been
+          # updated in place to a different update type). Removed before adding
+          # so a failure leaves the PR unlabeled (fail-closed). Tolerates a
+          # label that isn't on the PR or doesn't exist in the repo yet.
+          for STALE in dependencies-major dependencies-minor dependencies-patch; do
+            if [ "$STALE" != "$LABEL" ]; then
+              gh pr edit "$PR_URL" --remove-label "$STALE" || true
+            fi
+          done
           gh pr edit "$PR_URL" --add-label "$LABEL"

@@ -106,8 +106,9 @@ jobs:
       # authoritative source — in pull_request context). We can't run
       # fetch-metadata here because this workflow uses the workflow_run trigger
       # for security. Fail-closed allowlist: only dependencies-patch /
-      # dependencies-minor are safe to merge; dependencies-major or no label at
-      # all (e.g. labeling failed) keeps auto-merge disabled.
+      # dependencies-minor are safe to merge; dependencies-major (even combined
+      # with another dependencies-* label) or no label at all (e.g. labeling
+      # failed) keeps auto-merge disabled.
       - name: Get Dependabot metadata
         if: steps.verify.outputs.is_dependabot == 'true'
         id: metadata
@@ -126,7 +127,9 @@ jobs:
             const isMajor = labels.includes('dependencies-major');
             const isMinor = labels.includes('dependencies-minor');
             const isPatch = labels.includes('dependencies-patch');
-            const safe = isMinor || isPatch;                 // allowlist; major/none => false
+            // allowlist; none => false, and major always vetoes (even alongside
+            // a stale or hand-added minor/patch label)
+            const safe = !isMajor && (isMinor || isPatch);
             const updateType = isMajor ? 'dependencies-major'
                              : isMinor ? 'dependencies-minor'
                              : isPatch ? 'dependencies-patch'

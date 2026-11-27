@@ -243,8 +243,7 @@ Changelog fragments accumulate in `changelog.d/` as work merges, and are collect
 
 The Dependabot automation workflows authenticate as the [**Rubin Squarebot** GitHub App](https://github.com/apps/rubin-squarebot) rather than the default `GITHUB_TOKEN`. Two workflows mint a short-lived App token via [`actions/create-github-app-token`](https://github.com/actions/create-github-app-token):
 
-- **`dependabot-build.yml`** rebuilds `generated/` + `dist/` on a Dependabot PR and pushes the result back to the PR branch. The push is made with the App token (not `GITHUB_TOKEN`) so it **re-triggers CI** — a `GITHUB_TOKEN` push would not, leaving CI's `git diff --exit-code` bundle gate stuck.
-- **`dependabot-auto-merge.yml`** enables squash auto-merge for patch/minor Dependabot PRs once CI is green.
+- **`dependabot-build.yml`** rebuilds `generated/` + `dist/` on a Dependabot PR and pushes the result back to the PR branch. The push is made with the App token (not `GITHUB_TOKEN`) so it **re-triggers CI** — a `GITHUB_TOKEN` push would not, leaving CI's `git diff --exit-code` bundle gate stuck.- **`dependabot-auto-merge.yml`** enables squash auto-merge for patch/minor Dependabot PRs once CI is green. A `dependencies-major` label always blocks auto-merge.
 
 **Required configuration.** The App is identified by a non-sensitive client id and authenticated with a private key:
 
